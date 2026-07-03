@@ -1,6 +1,14 @@
 # Lab-Resource-Utilization-Platform
 A Full-Stack Lab Resource Utilization Platform built using React.js, Spring Boot, and PostgreSQL for managing laboratory equipment, scheduling, utilization monitoring, and resource sharing.
 
+`to run your  react frontend :`
+
+--> cd frontend
+
+--> npm i
+
+--> npm run dev
+
 
 `to run your spring boot bachend in eclipse :`
    
