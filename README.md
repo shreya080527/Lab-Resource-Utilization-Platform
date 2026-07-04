@@ -12,6 +12,15 @@ A Full-Stack Lab Resource Utilization Platform built using React.js, Spring Boot
 
 `to run your spring boot bachend in eclipse :`
    
+  --> goto lombok.jar folder in cmd run this command java -jar lombok.jar and restart eclipse
+
+  --> Enable annotation processing
+
+          In Eclipse, go to:
+          Window → Preferences → Java Compiler → Annotation Processing
+
+          Enable Annotation Processing and Annotation Processing in Java Projects.
+
   --> rigth click on project then click maven then click update project 
 
    --> change your postgresql credentials and database
