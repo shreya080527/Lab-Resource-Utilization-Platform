@@ -1,0 +1,46 @@
+package com.example.lab_resource_platform.service.email;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.mail.SimpleMailMessage;
+import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.stereotype.Service;
+
+@Service
+public class EmailService {
+
+    @Autowired
+    private JavaMailSender mailSender;
+
+
+    @Value("${app.email.from}")
+    private String adminEmail;
+
+    public void sendOtpEmail(String toEmail, String otp){
+        SimpleMailMessage message = new SimpleMailMessage();
+        message.setFrom(adminEmail);
+        message.setTo(toEmail);
+        message.setSubject("Lab Resource Utilization - Email Verification");
+        message.setText("Your OTP for email verification is: " + otp +
+                "\n\nThis OTP will expire in 5 minutes." +
+                "\n\nIf you didn't request this, please ignore.");
+
+        mailSender.send(message);
+
+    }
+
+    public void sendResetOtpEmail(String toEmail, String otp){
+        SimpleMailMessage message = new SimpleMailMessage();
+        message.setFrom(adminEmail);
+        message.setTo(toEmail);
+        message.setSubject("Lab Resource Utilization  - Reset Password");
+        message.setText("Your OTP for Password Reset is: "+ otp +
+                "\n\nThis OTP will expire in 5 minutes." +
+                "\n\nIf you didn't request this, please ignore.");
+        mailSender.send(message);
+    }
+
+
+
+
+}
