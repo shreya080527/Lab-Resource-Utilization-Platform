@@ -8,5 +8,3 @@ public enum Role {
 	    INSTITUTION_ADMIN,
 	    SYSTEM_ADMIN
 }
-
-
