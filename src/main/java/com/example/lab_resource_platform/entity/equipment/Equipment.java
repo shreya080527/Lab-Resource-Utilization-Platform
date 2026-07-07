@@ -4,9 +4,12 @@ import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.CreationTimestamp;
+
+import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "equipment")
+@Table(name = "equipments")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -14,20 +17,28 @@ public class Equipment {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long equipmentId;
+    private Long id;
+
+    private String serial; //serialNumber — unique physical identifier
 
     @Column(nullable = false)
     private String equipmentName;
 
     private String category;
 
-    @Column(length = 1000)
+    @Column(columnDefinition = "TEXT")
     private String description;
 
-    private Integer quantity;
+    @Column(updatable = false)
+    private LocalDateTime acquisitionDate;
 
-    private Integer availableQuantity;
+    private String institution; //(who legally owns it)
 
     @Enumerated(EnumType.STRING)
     private EquipmentStatus status;
+
+    @PrePersist
+    protected void onCreate() {
+        this.acquisitionDate = LocalDateTime.now();
+    }
 }
