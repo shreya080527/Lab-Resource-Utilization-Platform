@@ -1,6 +1,6 @@
 package com.example.lab_resource_platform.entity.user;
 
-import com.example.lab_resource_platform.entity.Role;
+import com.example.lab_resource_platform.entity.equipment.Equipment;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
@@ -10,6 +10,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Entity
 @Table(name = "users")

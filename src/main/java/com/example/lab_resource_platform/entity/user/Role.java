@@ -1,4 +1,4 @@
-package com.example.lab_resource_platform.entity;
+package com.example.lab_resource_platform.entity.user;
 
 public enum Role {
 	  	RESEARCHER,

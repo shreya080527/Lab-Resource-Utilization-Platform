@@ -1,10 +1,7 @@
 package com.example.lab_resource_platform.dto.auth;
 
-import com.example.lab_resource_platform.entity.Role;
-import jakarta.validation.constraints.Email;
-import jakarta.validation.constraints.NotBlank;
+import com.example.lab_resource_platform.entity.user.Role;
 import lombok.*;
-import org.springframework.stereotype.Service;
 
 @Data
 @NoArgsConstructor

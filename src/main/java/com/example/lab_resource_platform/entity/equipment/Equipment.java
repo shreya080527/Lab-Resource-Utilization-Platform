@@ -1,10 +1,10 @@
-package com.example.lab_resource_platform.entity;
+package com.example.lab_resource_platform.entity.equipment;
 
+import com.example.lab_resource_platform.entity.user.User;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import org.hibernate.annotations.CreationTimestamp;
 
 import java.time.LocalDateTime;
 
@@ -33,6 +33,9 @@ public class Equipment {
     private LocalDateTime acquisitionDate;
 
     private String institution; //(who legally owns it)
+
+    @Column(nullable = false, updatable = false)
+    private String addedBy;
 
     @Enumerated(EnumType.STRING)
     private EquipmentStatus status;
