@@ -73,6 +73,15 @@ public class EquipmentController {
 
 
     //get my equipments
+    @GetMapping("get-my-equipments")
+    @PreAuthorize("hasAnyRole('LAB_MANAGER', 'SYSTEM_ADMIN', ' DEPARTMENT_HEAD', '  INSTITUTION_ADMIN', 'LAB_TECHNICIAN')")
+    public ResponseEntity<?> getMyEquipments() {
+        try {
+            return ResponseEntity.ok( equipmentService.getMyEquipments());
+        }catch (Exception e){
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
 
 
     //update equipment status

@@ -11,19 +11,16 @@ import com.example.lab_resource_platform.entity.user.UserPrincipal;
 import com.example.lab_resource_platform.repository.auth.UserRepo;
 import com.example.lab_resource_platform.repository.equipment.EquipmentRepo;
 import jakarta.validation.Valid;
-import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.crossstore.ChangeSetPersister;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.jpa.domain.Specification;
-import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.io.PipedOutputStream;
 import java.util.List;
+
+import static com.example.lab_resource_platform.entity.equipment.EquipmentStatus.RETIRED;
 
 @Service
 
@@ -79,8 +76,12 @@ public class EquipmentService {
         return equipmentRepo.save(equipment);
     }
 
+    //not actually deleting just marking as retired, because other services refer to this
     public void delete( Long id) {
-        equipmentRepo.deleteById(id);
+        Equipment equipment = equipmentRepo.findById(id)
+                .orElseThrow(() -> new RuntimeException("Equipment not found"));
+        equipment.setStatus(RETIRED);
+        equipmentRepo.save(equipment);
     }
 
     public List<Equipment> getAllEquipments() {
@@ -94,4 +95,17 @@ public class EquipmentService {
         equipment.setStatus(request.getStatus());
         return equipmentRepo.save(equipment);
     }
+
+    public List<Equipment> getMyEquipments() {
+
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        UserPrincipal principal = (UserPrincipal) auth.getPrincipal();
+        User currentUser = userRepo.findByEmail(principal.getUsername())
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        List<Equipment> equipments = equipmentRepo.findByAddedBy(currentUser.getUsername());
+        return  equipments;
+    }
 }
+
+
