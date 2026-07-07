@@ -16,7 +16,7 @@ export default function LoginPage() {
     const [loading, setLoading] = useState(false);
 
     const [formData, setFormData] = useState({
-        username: "",
+        email: "",
         password: ""
     });
 
@@ -37,7 +37,7 @@ export default function LoginPage() {
 
             const response = await loginUser(formData);
 
-            login(response.data);
+            login({ accessToken: response.data.accessToken });
 
             toast.success("Login Successful");
 
@@ -87,7 +87,7 @@ export default function LoginPage() {
 
                             <label className="text-slate-200">
 
-                                Username
+                                Email
 
                             </label>
 
@@ -99,11 +99,11 @@ export default function LoginPage() {
                                 />
 
                                 <input
-                                    type="text"
-                                    name="username"
-                                    value={formData.username}
+                                    type="email"
+                                    name="email"
+                                    value={formData.email}
                                     onChange={handleChange}
-                                    placeholder="Enter Username"
+                                    placeholder="Enter Email"
                                     className="w-full rounded-xl bg-slate-800 text-white pl-12 pr-4 py-3 outline-none border border-slate-700 focus:border-cyan-400"
                                     required
                                 />
@@ -166,6 +166,15 @@ export default function LoginPage() {
                             {loading ? "Logging in..." : "Login"}
 
                         </button>
+
+                        <div className="text-center">
+                            <Link
+                                to="/forgot-password"
+                                className="text-cyan-400 hover:underline text-sm"
+                            >
+                                Forgot Password?
+                            </Link>
+                        </div>
 
                     </form>
 

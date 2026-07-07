@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { User, Mail, Lock, Building2, School } from "lucide-react";
 import toast, { Toaster } from "react-hot-toast";
-import { signupUser } from "../services/authService";
+import { registerUser } from "../services/authService";
 
 const ROLES = [
     "RESEARCHER",
@@ -20,8 +20,6 @@ export default function SignupPage() {
     const [loading, setLoading] = useState(false);
 
     const [formData, setFormData] = useState({
-        firstname: "",
-        lastname: "",
         username: "",
         email: "",
         password: "",
@@ -45,11 +43,11 @@ export default function SignupPage() {
 
         try {
 
-            await signupUser(formData);
+            const response = await registerUser(formData);
 
-            toast.success("Registration Successful");
+            toast.success(response.data.message || "Registration Successful! Please check your email for OTP.");
 
-            setTimeout(() => navigate("/login"), 1500);
+            setTimeout(() => navigate("/verify-otp", { state: { email: formData.email } }), 1500);
 
         } catch (err) {
 
@@ -84,22 +82,6 @@ export default function SignupPage() {
                         onSubmit={handleSubmit}
                         className="grid grid-cols-2 gap-5 mt-10"
                     >
-
-                        <input
-                            name="firstname"
-                            placeholder="First Name"
-                            onChange={handleChange}
-                            className="p-3 rounded-xl bg-slate-800 text-white"
-                            required
-                        />
-
-                        <input
-                            name="lastname"
-                            placeholder="Last Name"
-                            onChange={handleChange}
-                            className="p-3 rounded-xl bg-slate-800 text-white"
-                            required
-                        />
 
                         <input
                             name="username"
