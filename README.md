@@ -1,171 +1,584 @@
-· MDLab-Resource-Utilization-Platform
+# MDLab-Resource-Utilization-Platform
 
-A Full-Stack Lab Resource Utilization Platform built using React.js, Spring Boot, and PostgreSQL for managing laboratory equipment, scheduling, utilization monitoring, and resource sharing.
+A **Full-Stack Lab Resource Utilization Platform** built using **React.js**, **Spring Boot**, and **PostgreSQL** for managing laboratory equipment, scheduling, utilization monitoring, and resource sharing.
 
-to run your  react frontend :
+---
 
---> cd frontend
+# Getting Started
 
---> npm i
+## Prerequisites
 
---> npm run dev
+Before running the project, ensure you have the following installed:
 
-to run your spring boot bachend in eclipse :
+- Java 21 (or the version required by the project)
+- Node.js & npm
+- PostgreSQL
+- Eclipse IDE (recommended for the backend)
+- Maven
 
---> goto lombok.jar folder in cmd run this command java -jar lombok.jar and restart eclipse
+---
 
---> Enable annotation processing
+# Running the Frontend (React)
 
-      In Eclipse, go to:
-      Window → Preferences → Java Compiler → Annotation Processing
+Navigate to the frontend directory:
 
-      Enable Annotation Processing and Annotation Processing in Java Projects.
+```bash
+cd frontend
+```
 
---> rigth click on project then click maven then click update project
+Install dependencies:
 
---> change your postgresql credentials and database
+```bash
+npm install
+```
 
---> open LabResourcePlatformApplication file then click run button
+Start the development server:
 
-Auth Flow & API Endpoints
+```bash
+npm run dev
+```
 
-1. Register
+---
 
-POST http://localhost:8080/api/auth/register
+# Running the Backend (Spring Boot)
 
-Request Body
+## Step 1: Enable Lombok
 
-json{
-"username": "rahul",
-"email": "xyz@gmail.com",
-"password": "12345678",
-"role": "RESEARCHER",
-"department": "CS",
-"institution": "XYZ University"
-}
+Navigate to the folder containing `lombok.jar` and run:
 
-these are the enum role
-RESEARCHER,
-LAB_TECHNICIAN,
-LAB_MANAGER,
-DEPARTMENT_HEAD,
-INSTITUTION_ADMIN,
+```bash
+java -jar lombok.jar
+```
+
+Restart Eclipse after installation.
+
+---
+
+## Step 2: Enable Annotation Processing
+
+In Eclipse:
+
+```
+Window
+    → Preferences
+        → Java Compiler
+            → Annotation Processing
+```
+
+Enable:
+
+- Annotation Processing
+- Annotation Processing in Java Projects
+
+---
+
+## Step 3: Update Maven Project
+
+Right-click the project:
+
+```
+Maven → Update Project
+```
+
+---
+
+## Step 4: Configure PostgreSQL
+
+Update your PostgreSQL credentials and database configuration inside:
+
+```
+application.properties
+```
+
+or
+
+```
+application.yml
+```
+
+depending on your project configuration.
+
+---
+
+## Step 5: Run the Application
+
+Open
+
+```
+LabResourcePlatformApplication
+```
+
+and click **Run**.
+
+---
+
+# Authentication API
+
+## User Roles
+
+The application supports the following user roles:
+
+```text
+RESEARCHER
+LAB_TECHNICIAN
+LAB_MANAGER
+DEPARTMENT_HEAD
+INSTITUTION_ADMIN
 SYSTEM_ADMIN
+```
 
-Response
+---
 
-json{
-"message": "Registration successful! Please check your email for OTP.",
-"email": "xyz@gmail.com"
+## 1. Register
+
+**Method:** `POST`
+
+**Endpoint**
+
+```http
+POST http://localhost:8080/api/auth/register
+```
+
+### Request Body
+
+```json
+{
+  "username": "rahul",
+  "email": "xyz@gmail.com",
+  "password": "12345678",
+  "role": "RESEARCHER",
+  "department": "CS",
+  "institution": "XYZ University"
 }
+```
 
-This sends an OTP to the given email.
+### Response
 
-2. Verify Email
+```json
+{
+  "message": "Registration successful! Please check your email for OTP.",
+  "email": "xyz@gmail.com"
+}
+```
 
+An OTP will be sent to the registered email address.
+
+---
+
+## 2. Verify Email
+
+**Method:** `POST`
+
+**Endpoint**
+
+```http
 POST http://localhost:8080/api/auth/verify
+```
 
-Request Body
+### Request Body
 
-json{
-"email": "xyz@gmail.com",
-"otp": "067263"
+```json
+{
+  "email": "xyz@gmail.com",
+  "otp": "067263"
 }
+```
 
-Response
+### Response
 
-json{
-"message": "Email verified successfully!"
+```json
+{
+  "message": "Email verified successfully!"
 }
+```
 
-3. Login
+---
 
+## 3. Login
+
+**Method:** `POST`
+
+**Endpoint**
+
+```http
 POST http://localhost:8080/api/auth/login
+```
 
-Request Body
+### Request Body
 
-json{
-"email": "xyz@gmail.com",
-"password": "12345678"
+```json
+{
+  "email": "xyz@gmail.com",
+  "password": "12345678"
 }
+```
 
-Response
+### Response
 
-json{
-"tokenType": "Bearer",
-"accessToken": "eyJhbGciOiJIUzI1NiJ9.eyJyb2xlIjoiUkVTRUFSQ0hFUiIsInR5cGUiOiJhY2Nlc3MiLCJzdWIiOiJ6YWhpcWlicmFoaW1iaGF0QGdtYWlsLmNvbSIsImlhdCI6MTc4MzM2MDM2MCwiZXhwIjoxNzg1OTUyMzYwfQ.noYU1MgUfKnarSMs5kvUxus97VGS4HSiq8epemtlk8s"
+```json
+{
+  "tokenType": "Bearer",
+  "accessToken": "your_jwt_access_token"
 }
+```
 
-This gives you an access token. All protected URLs will need this token, otherwise it will return unauthorized.
+### JWT Authentication
 
-Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.eyJyb2xlIjoiUkVTRUFSQ0hFUi...
+All protected endpoints require the JWT access token returned after login.
 
-This token has the user's email, username, and role encoded in it.
+Include it in every request:
 
-This token will expire every 30 days, after which the user must log in again.
+```http
+Authorization: Bearer <your_jwt_access_token>
+```
 
-4. Resend OTP
+The JWT contains the authenticated user's:
 
+- Email
+- Username
+- Role
+
+The token remains valid for **30 days**, after which the user must log in again.
+
+---
+
+## 4. Resend OTP
+
+**Method:** `POST`
+
+**Endpoint**
+
+```http
 POST http://localhost:8080/api/auth/resend-otp
+```
 
-Request Body
+### Request Body
 
-json{
-"email" : "xyz@gmail.com"
+```json
+{
+  "email": "xyz@gmail.com"
 }
+```
 
-Response
+### Response
 
-json{
-"message": "OTP resent successfully!"
+```json
+{
+  "message": "OTP resent successfully!"
 }
+```
 
-5. Reset Password Request
+---
 
+## 5. Request Password Reset
+
+**Method:** `POST`
+
+**Endpoint**
+
+```http
 POST http://localhost:8080/api/auth/reset-password-request
+```
 
-Request Body
+### Request Body
 
-json{
-"email" : "xyz@gmail.com"
+```json
+{
+  "email": "xyz@gmail.com"
 }
+```
 
-Response
+### Response
 
+```text
 Reset OTP sent successfully!
+```
 
-6. Reset Password
+---
 
+## 6. Reset Password
+
+**Method:** `POST`
+
+**Endpoint**
+
+```http
 POST http://localhost:8080/api/auth/reset-password
+```
 
-Request Body
+### Request Body
 
-json{
-"email":"xyz@gmail.com",
-"newPassword":"12345678",
-"otp":"814463"
+```json
+{
+  "email": "xyz@gmail.com",
+  "newPassword": "12345678",
+  "otp": "814463"
 }
+```
 
-Response
+### Response
 
+```text
 Password changed successfully!
+```
 
-7. Get User Details
+---
 
+## 7. Get User Details
+
+**Method:** `GET`
+
+**Endpoint**
+
+```http
 GET http://localhost:8080/api/auth/get-user-details
+```
 
-Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.eyJyb2xlIjoiUkVTRUFSQ0hFUi...
+### Authentication
 
-You must provide your JWT access token in this endpoint.
+```http
+Authorization: Bearer <your_jwt_access_token>
+```
 
-Response
+### Response
 
-json{
-"id": 1,
-"username": "rahul",
-"email": "xyz@gmail.com",
-"role": "RESEARCHER",
-"emailVerified": true,
-"department": "CS",
-"institution": "XYZ University"
+```json
+{
+  "id": 1,
+  "username": "rahul",
+  "email": "xyz@gmail.com",
+  "role": "RESEARCHER",
+  "emailVerified": true,
+  "department": "CS",
+  "institution": "XYZ University"
 }
+```
+
+---
+
+# Equipment Management API
+
+The Equipment Management module provides APIs for creating, updating, deleting, and retrieving laboratory equipment.
+
+> **Authentication Required**
+>
+> All endpoints in this section require a valid JWT access token.
+>
+> Include the following header with every request:
+>
+> ```http
+> Authorization: Bearer <your_jwt_access_token>
+> ```
+>
+> Some endpoints also require an equipment **ID** as a path variable.
+
+---
+
+## 1. Add Equipment
+
+**Method:** `POST`
+
+**Endpoint**
+
+```http
+POST http://localhost:8080/api/equipment/add-equipment
+```
+
+### Request Body
+
+```json
+{
+  "serial": "13s34s3",
+  "equipmentName": "MicroScope",
+  "category": "Micro Biology",
+  "description": "ESAW 1125x Student Compound Biological School Microscope with Prepared Glass Slides (Magnification: 100x to 1125x)",
+  "institution": "Cluster University"
+}
+```
+
+### Response
+
+```json
+{
+  "id": 8,
+  "serial": "13s34ss3",
+  "equipmentName": "MicroScope",
+  "category": "Micro Biology",
+  "description": "ESAW 1125x Student Compound Biological School Microscope with Prepared Glass Slides (Magnification: 100x to 1125x)",
+  "acquisitionDate": "2026-07-07T21:42:26.214146",
+  "institution": "Cluster University",
+  "status": "AVAILABLE",
+  "addedBy": "zahiq Ibrahim"
+}
+```
+
+---
+
+## 2. Update Equipment
+
+**Method:** `PUT`
+
+**Endpoint**
+
+```http
+PUT http://localhost:8080/api/equipment/update-equipment/{id}
+```
+
+**Example**
+
+```http
+PUT http://localhost:8080/api/equipment/update-equipment/1
+```
+
+### Request Body
+
+```json
+{
+  "equipmentName": "MicroScope",
+  "institution": "Cam University"
+}
+```
+
+### Response
+
+```json
+{
+  "id": 1,
+  "serial": "1334s3",
+  "equipmentName": "ocilo",
+  "category": "Micro Biology",
+  "description": "ESAW 1125x Student Compound Biological School Microscope with Prepared Glass Slides (Magnification: 100x to 1125x)",
+  "acquisitionDate": "2026-07-07T20:16:58.1351",
+  "institution": "Cam University",
+  "addedBy": "zahiq Ibrahim",
+  "status": "AVAILABLE"
+}
+```
+
+---
+
+## 3. Delete Equipment
+
+**Method:** `DELETE`
+
+**Endpoint**
+
+```http
+DELETE http://localhost:8080/api/equipment/delete-equipment/{id}
+```
+
+**Example**
+
+```http
+DELETE http://localhost:8080/api/equipment/delete-equipment/7
+```
+
+### Response
+
+```text
+Equipment Deleted Successfully
+```
+
+---
+
+## 4. Get All Equipment
+
+**Method:** `GET`
+
+**Endpoint**
+
+```http
+GET http://localhost:8080/api/equipment/get-all-equipments
+```
+
+### Response
+
+```json
+[
+  {
+    "id": 7,
+    "serial": "13s34s3",
+    "equipmentName": "MicroScope",
+    "category": "Micro Biology",
+    "description": "ESAW 1125x Student Compound Biological School Microscope with Prepared Glass Slides (Magnification: 100x to 1125x)",
+    "acquisitionDate": "2026-07-07T21:36:06.588868",
+    "institution": "Cluster University",
+    "addedBy": "zahiq Ibrahim",
+    "status": "RETIRED"
+  }
+]
+```
+
+---
+
+## 5. Update Equipment Status
+
+**Method:** `PUT`
+
+**Endpoint**
+
+```http
+PUT http://localhost:8080/api/equipment/update-equipment-status/{id}
+```
+
+**Example**
+
+```http
+PUT http://localhost:8080/api/equipment/update-equipment-status/2
+```
+
+### Request Body
+
+```json
+{
+  "status": "UNDER_MAINTENANCE"
+}
+```
+
+### Response
+
+```json
+{
+  "id": 2,
+  "serial": "1334s3",
+  "equipmentName": "MicroScope",
+  "category": "Micro Biology",
+  "description": "ESAW 1125x Student Compound Biological School Microscope with Prepared Glass Slides (Magnification: 100x to 1125x)",
+  "acquisitionDate": "2026-07-07T21:08:52.749123",
+  "institution": "Cluster University",
+  "addedBy": "zahiq Ibrahim",
+  "status": "UNDER_MAINTENANCE"
+}
+```
+
+---
+
+## 6. Get My Equipment
+
+Returns all equipment created by the currently authenticated user.
+
+**Method:** `GET`
+
+**Endpoint**
+
+```http
+GET http://localhost:8080/api/equipment/get-my-equipments
+```
+
+### Response
+
+```json
+[
+  {
+    "id": 7,
+    "serial": "13s34s3",
+    "equipmentName": "MicroScope",
+    "category": "Micro Biology",
+    "description": "ESAW 1125x Student Compound Biological School Microscope with Prepared Glass Slides (Magnification: 100x to 1125x)",
+    "acquisitionDate": "2026-07-07T21:36:06.588868",
+    "institution": "Cluster University",
+    "addedBy": "zahiq Ibrahim",
+    "status": "RETIRED"
+  }
+]
+```
