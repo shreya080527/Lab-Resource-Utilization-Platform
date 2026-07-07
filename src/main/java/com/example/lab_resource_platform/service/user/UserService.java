@@ -33,12 +33,35 @@ public class UserService {
             if(dbUser.getEmailVerified()){
                 throw new RuntimeException("Email already registered");
             }
+            dbUser.setEmail(user.getEmail());
+            if (repo.existsByUsername(user.getUsername())) {
+                if(dbUser.getEmailVerified()){
+                    throw new RuntimeException("UserName already taken");
+                }
+            }
+            dbUser.setUsername(user.getUsername());
+            dbUser.setPassword(encoder.encode(user.getPassword()));
+            dbUser.setEmailVerified(false);
+            dbUser.setDepartment(user.getDepartment());
+            dbUser.setInstitution(user.getInstitution());
+            dbUser.setRole(user.getRole());
+            // Save user
+            User savedUser = repo.save(dbUser);
+
+            // Generate and send OTP
+            otpService.generateAndSendOtp(savedUser);
+
+            return savedUser;
+
 
         }
 
         // Check if username already exists
         if (repo.existsByUsername(user.getUsername())) {
-            throw new RuntimeException("Username already taken");
+            User dbUser = repo.findByEmail(user.getEmail()).orElseThrow(()-> new RuntimeException("User not found"));
+            if(dbUser.getEmailVerified()){
+                throw new RuntimeException("UserName already taken");
+            }
         }
 
         // Encode password
