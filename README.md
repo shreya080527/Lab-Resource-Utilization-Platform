@@ -680,7 +680,7 @@ GET
 ### Endpoint
 
 ```
-http://localhost:8080/api/bookings/calendar?equipmentId=1&start=2026-07-09T00:00:00&end=2026-07-09T23:59:59
+http://localhost:8080/api/bookings/calendar?userId=2&start=2026-07-09T00:00:00&end=2026-07-09T23:59:59
 ```
 
 ### Request Body
@@ -709,14 +709,75 @@ None
         "user": {
             "id": 2,
             "username": "reseacher_r",
+            "password": "$2a$12$PEGJqW3W7tL9Cs49PB/90.eYDyPjV/KbjjY1FAsBjVHzFLt.AIawO",
             "email": "onlinevoting630@gmail.com",
             "emailVerified": true,
+            "verificationOtp": null,
+            "otpGeneratedTime": null,
             "role": "RESEARCHER",
             "institution": "lbwe",
             "department": "Computer Science"
         },
-        "startTime": "2026-07-09T10:00:00",
-        "endTime": "2026-07-09T12:00:00",
+        "startTime": "2026-07-09T05:30:00",
+        "endTime": "2026-07-09T06:00:00",
+        "status": "CANCELLED"
+    },
+    {
+        "id": 3,
+        "equipment": {
+            "id": 2,
+            "serial": "13s34s4",
+            "equipmentName": "MicroScope",
+            "category": "Micro Biology",
+            "description": "ESAW 1125x Student Compound Biological School Microscope with Prepared Glass Slides (Magnification: 100x to 1125x)",
+            "acquisitionDate": "2026-07-08T14:05:18.092768",
+            "institution": "Cluster University",
+            "addedBy": "nani",
+            "status": "AVAILABLE"
+        },
+        "user": {
+            "id": 2,
+            "username": "reseacher_r",
+            "password": "$2a$12$PEGJqW3W7tL9Cs49PB/90.eYDyPjV/KbjjY1FAsBjVHzFLt.AIawO",
+            "email": "onlinevoting630@gmail.com",
+            "emailVerified": true,
+            "verificationOtp": null,
+            "otpGeneratedTime": null,
+            "role": "RESEARCHER",
+            "institution": "lbwe",
+            "department": "Computer Science"
+        },
+        "startTime": "2026-07-09T05:30:00",
+        "endTime": "2026-07-09T06:00:00",
+        "status": "CANCELLED"
+    },
+    {
+        "id": 4,
+        "equipment": {
+            "id": 2,
+            "serial": "13s34s4",
+            "equipmentName": "MicroScope",
+            "category": "Micro Biology",
+            "description": "ESAW 1125x Student Compound Biological School Microscope with Prepared Glass Slides (Magnification: 100x to 1125x)",
+            "acquisitionDate": "2026-07-08T14:05:18.092768",
+            "institution": "Cluster University",
+            "addedBy": "nani",
+            "status": "AVAILABLE"
+        },
+        "user": {
+            "id": 2,
+            "username": "reseacher_r",
+            "password": "$2a$12$PEGJqW3W7tL9Cs49PB/90.eYDyPjV/KbjjY1FAsBjVHzFLt.AIawO",
+            "email": "onlinevoting630@gmail.com",
+            "emailVerified": true,
+            "verificationOtp": null,
+            "otpGeneratedTime": null,
+            "role": "RESEARCHER",
+            "institution": "lbwe",
+            "department": "Computer Science"
+        },
+        "startTime": "2026-07-09T05:30:00",
+        "endTime": "2026-07-09T06:00:00",
         "status": "PENDING"
     }
 ]
