@@ -681,6 +681,8 @@ GET
 
 ```
 http://localhost:8080/api/bookings/calendar?userId=2&start=2026-07-09T00:00:00&end=2026-07-09T23:59:59
+
+?userId={userId}&start={startTime}&end={endTime}
 ```
 
 ### Request Body
@@ -840,6 +842,8 @@ POST
 
 ```
 http://localhost:8080/api/bookings/4/status?status=CANCELLED
+
+/api/bookings/{bookingId}/status?status={status}
 ```
 
 ### Request Body
@@ -870,6 +874,8 @@ GET
 
 ```
 http://localhost:8080/api/bookings/my-dashboard/2
+
+/my-dashboard/{userId}
 ```
 
 ### Request Body
