@@ -1,16 +1,24 @@
 package com.example.lab_resource_platform.controller.equipment;
 
-import com.example.lab_resource_platform.dto.equipment.CreateEquipmentRequest;
-import com.example.lab_resource_platform.dto.equipment.EquipmentResponse;
-import com.example.lab_resource_platform.dto.equipment.UpdateEquipmentRequest;
-import com.example.lab_resource_platform.dto.equipment.UpdateEquipmentStatusRequest;
-import com.example.lab_resource_platform.service.EquipmentService;
-import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import com.example.lab_resource_platform.dto.equipment.CreateEquipmentRequest;
+import com.example.lab_resource_platform.dto.equipment.UpdateEquipmentRequest;
+import com.example.lab_resource_platform.dto.equipment.UpdateEquipmentStatusRequest;
+import com.example.lab_resource_platform.service.EquipmentService;
+
+import jakarta.validation.Valid;
 
 @RestController
 @RequestMapping("api/equipment")
