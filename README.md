@@ -582,3 +582,344 @@ GET http://localhost:8080/api/equipment/get-my-equipments
   }
 ]
 ```
+# Booking Management API Documentation
+
+## Authentication Requirements
+
+The following APIs require a **Researcher Access Token**:
+
+* Create Booking
+* Calendar Data
+* My Dashboard
+
+For booking status modification:
+
+* If a **Researcher** wants to cancel a booking request, pass the **Researcher Access Token**.
+* If a **Lab Manager** wants to update the booking status, pass the **Manager Access Token**.
+
+---
+
+# 1. Create Booking
+
+### Method
+
+```
+POST
+```
+
+### Endpoint
+
+```
+http://localhost:8080/api/bookings/create
+```
+
+### Request Body
+
+```json
+{
+    "userId": 1,
+    "equipmentId": 1,
+    "startTime": "2026-07-09T10:00:00",
+    "endTime": "2026-07-09T12:00:00"
+}
+```
+
+### Response
+
+```
+Booking request submitted successfully. Awaiting Manager approval.
+```
+
+---
+
+# 2. Create Booking - Conflict Check
+
+When a requested booking slot conflicts with an active booking timeline, the request will automatically be added to the waitlist.
+
+### Method
+
+```
+POST
+```
+
+### Endpoint
+
+```
+http://localhost:8080/api/bookings/create
+```
+
+### Request Body
+
+```json
+{
+    "userId": 2,
+    "equipmentId": 1,
+    "startTime": "2026-07-09T10:30:00",
+    "endTime": "2026-07-09T11:30:00"
+}
+```
+
+### Response
+
+```
+Slot conflicting with an active timeline. Auto-added to the Waitlist.
+```
+
+---
+
+# 3. Calendar Data
+
+Returns the booking schedule for a specific equipment within the given time range.
+
+### Method
+
+```
+GET
+```
+
+### Endpoint
+
+```
+http://localhost:8080/api/bookings/calendar?equipmentId=1&start=2026-07-09T00:00:00&end=2026-07-09T23:59:59
+```
+
+### Request Body
+
+```
+None
+```
+
+### Response
+
+```json
+[
+    {
+        "id": 1,
+        "equipment": {
+            "id": 1,
+            "serial": "13s34s3",
+            "equipmentName": "MicroScope",
+            "category": "Micro Biology",
+            "description": "ESAW 1125x Student Compound Biological School Microscope with Prepared Glass Slides (Magnification: 100x to 1125x)",
+            "acquisitionDate": "2026-07-08T14:05:09.306125",
+            "institution": "Cluster University",
+            "addedBy": "nani",
+            "status": "AVAILABLE"
+        },
+        "user": {
+            "id": 2,
+            "username": "reseacher_r",
+            "email": "onlinevoting630@gmail.com",
+            "emailVerified": true,
+            "role": "RESEARCHER",
+            "institution": "lbwe",
+            "department": "Computer Science"
+        },
+        "startTime": "2026-07-09T10:00:00",
+        "endTime": "2026-07-09T12:00:00",
+        "status": "PENDING"
+    }
+]
+```
+
+---
+
+# 4. Update Booking Status (Researcher / Lab Manager)
+
+## Authorization Rules
+
+### Researcher
+
+A researcher can cancel their own booking request.
+
+Required:
+
+```
+Researcher Access Token
+```
+
+Example action:
+
+```
+Cancel booking request
+```
+
+---
+
+### Lab Manager
+
+A lab manager can update the booking status.
+
+Required:
+
+```
+Manager Access Token
+```
+
+Example actions:
+
+```
+Approve booking
+Reject booking
+Cancel booking
+Update booking status
+```
+
+---
+
+## Cancel Booking Request
+
+### Method
+
+```
+POST
+```
+
+### Endpoint
+
+```
+http://localhost:8080/api/bookings/4/status?status=CANCELLED
+```
+
+### Request Body
+
+```
+None
+```
+
+### Response
+
+```
+Booking status updated to CANCELLED. Waitlist verified.
+```
+
+---
+
+# 5. My Dashboard - Booking and Waitlist Data
+
+Returns the user's booking history and waitlist information.
+
+### Method
+
+```
+GET
+```
+
+### Endpoint
+
+```
+http://localhost:8080/api/bookings/my-dashboard/2
+```
+
+### Request Body
+
+```
+None
+```
+
+### Response
+
+```json
+{
+    "bookings": [
+        {
+            "id": 1,
+            "equipment": {
+                "id": 1,
+                "serial": "13s34s3",
+                "equipmentName": "MicroScope",
+                "category": "Micro Biology",
+                "description": "ESAW 1125x Student Compound Biological School Microscope with Prepared Glass Slides (Magnification: 100x to 1125x)",
+                "acquisitionDate": "2026-07-08T14:05:09.306125",
+                "institution": "Cluster University",
+                "addedBy": "nani",
+                "status": "AVAILABLE"
+            },
+            "user": {
+                "id": 2,
+                "username": "reseacher_r",
+                "email": "onlinevoting630@gmail.com",
+                "role": "RESEARCHER",
+                "institution": "lbwe",
+                "department": "Computer Science"
+            },
+            "startTime": "2026-07-09T05:30:00",
+            "endTime": "2026-07-09T06:00:00",
+            "status": "CANCELLED"
+        },
+        {
+            "id": 3,
+            "equipment": {
+                "id": 2,
+                "serial": "13s34s4",
+                "equipmentName": "MicroScope",
+                "category": "Micro Biology",
+                "description": "ESAW 1125x Student Compound Biological School Microscope with Prepared Glass Slides (Magnification: 100x to 1125x)",
+                "acquisitionDate": "2026-07-08T14:05:18.092768",
+                "institution": "Cluster University",
+                "addedBy": "nani",
+                "status": "AVAILABLE"
+            },
+            "user": {
+                "id": 2,
+                "username": "reseacher_r",
+                "email": "onlinevoting630@gmail.com",
+                "role": "RESEARCHER",
+                "institution": "lbwe",
+                "department": "Computer Science"
+            },
+            "startTime": "2026-07-09T05:30:00",
+            "endTime": "2026-07-09T06:00:00",
+            "status": "CANCELLED"
+        },
+        {
+            "id": 4,
+            "equipment": {
+                "id": 2,
+                "serial": "13s34s4",
+                "equipmentName": "MicroScope",
+                "category": "Micro Biology",
+                "description": "ESAW 1125x Student Compound Biological School Microscope with Prepared Glass Slides (Magnification: 100x to 1125x)",
+                "acquisitionDate": "2026-07-08T14:05:18.092768",
+                "institution": "Cluster University",
+                "addedBy": "nani",
+                "status": "AVAILABLE"
+            },
+            "user": {
+                "id": 2,
+                "username": "reseacher_r",
+                "email": "onlinevoting630@gmail.com",
+                "role": "RESEARCHER",
+                "institution": "lbwe",
+                "department": "Computer Science"
+            },
+            "startTime": "2026-07-09T05:30:00",
+            "endTime": "2026-07-09T06:00:00",
+            "status": "PENDING"
+        }
+    ],
+    "waitlistEntries": []
+}
+```
+
+---
+
+# API Authorization Summary
+
+| API                    | Researcher Access Token | Manager Access Token |
+| ---------------------- | ----------------------- | -------------------- |
+| Create Booking         | Required                | Not Required         |
+| Calendar Data          | Required                | Not Required         |
+| My Dashboard           | Required                | Not Required         |
+| Cancel Booking Request | Required                | Not Required         |
+| Approve Booking        | Not Required            | Required             |
+| Reject Booking         | Not Required            | Required             |
+| Update Booking Status  | Not Required            | Required             |
+
+---
+
+# Base URL
+
+```
+http://localhost:8080
+```
