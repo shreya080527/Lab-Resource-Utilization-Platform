@@ -106,6 +106,11 @@ public class EquipmentService {
         List<Equipment> equipments = equipmentRepo.findByAddedBy(currentUser.getUsername());
         return  equipments;
     }
+
+    public Equipment getEquipmentDetails(Long id) {
+        Equipment equipment = equipmentRepo.findById(id).orElseThrow(()-> new RuntimeException("Equipment not found"));
+        return  equipment;
+    }
 }
 
 
