@@ -1,12 +1,20 @@
 import API from "./api";
 
-// Create a new booking
+/*
+|--------------------------------------------------------------------------
+| Booking APIs
+|--------------------------------------------------------------------------
+*/
+
 export const createBooking = (bookingData) => {
     return API.post("/api/bookings/create", bookingData);
 };
 
-// Get bookings for calendar view
-export const getCalendarBookings = (userId, start, end) => {
+export const getResearcherDashboard = (userId) => {
+    return API.get(`/api/bookings/my-dashboard/${userId}`);
+};
+
+export const getCalendar = (userId, start, end) => {
     return API.get("/api/bookings/calendar", {
         params: {
             userId,
@@ -16,16 +24,26 @@ export const getCalendarBookings = (userId, start, end) => {
     });
 };
 
-// Update booking status
 export const updateBookingStatus = (bookingId, status) => {
-    return API.post(`/api/bookings/${bookingId}/status`, null, {
-        params: {
-            status,
-        },
-    });
+    return API.post(
+        `/api/bookings/${bookingId}/status`,
+        null,
+        {
+            params: {
+                status,
+            },
+        }
+    );
 };
 
-// Get researcher dashboard data
-export const getResearcherDashboard = (userId) => {
-    return API.get(`/api/bookings/my-dashboard/${userId}`);
+/*
+|--------------------------------------------------------------------------
+| Equipment APIs
+|--------------------------------------------------------------------------
+| Your backend teammate may change these later.
+| We'll only update these URLs if needed.
+*/
+
+export const getAllEquipment = () => {
+    return API.get("/api/equipment/get-all-equipments");
 };

@@ -7,12 +7,11 @@ export default function AddEquipment() {
     const navigate = useNavigate();
 
     const [equipment, setEquipment] = useState({
+        serial: "",
         equipmentName: "",
         category: "",
         description: "",
-        quantity: "",
-        availableQuantity: "",
-        status: "AVAILABLE"
+        institution: ""
     });
 
     const handleChange = (e) => {
@@ -28,7 +27,11 @@ export default function AddEquipment() {
 
         try {
 
-            await addEquipment(equipment);
+            console.log("Sending Data:", equipment);
+
+            const response = await addEquipment(equipment);
+
+            console.log(response.data);
 
             alert("Equipment Added Successfully");
 
@@ -36,8 +39,13 @@ export default function AddEquipment() {
 
         } catch (err) {
 
-            console.log(err);
-            alert("Failed to add equipment");
+            console.error(err);
+
+            alert(
+                err.response?.data?.message ||
+                err.response?.data ||
+                "Failed to add equipment"
+            );
 
         }
 
@@ -57,54 +65,50 @@ export default function AddEquipment() {
             >
 
                 <input
+                    name="serial"
+                    placeholder="Serial Number"
+                    value={equipment.serial}
+                    onChange={handleChange}
+                    className="border p-3 w-full"
+                    required
+                />
+
+                <input
                     name="equipmentName"
                     placeholder="Equipment Name"
-                    className="border p-3 w-full"
+                    value={equipment.equipmentName}
                     onChange={handleChange}
+                    className="border p-3 w-full"
+                    required
                 />
 
                 <input
                     name="category"
                     placeholder="Category"
-                    className="border p-3 w-full"
+                    value={equipment.category}
                     onChange={handleChange}
+                    className="border p-3 w-full"
                 />
 
                 <textarea
                     name="description"
                     placeholder="Description"
-                    className="border p-3 w-full"
+                    value={equipment.description}
                     onChange={handleChange}
+                    className="border p-3 w-full"
                 />
 
                 <input
-                    type="number"
-                    name="quantity"
-                    placeholder="Total Quantity"
-                    className="border p-3 w-full"
+                    name="institution"
+                    placeholder="Institution"
+                    value={equipment.institution}
                     onChange={handleChange}
+                    className="border p-3 w-full"
                 />
-
-                <input
-                    type="number"
-                    name="availableQuantity"
-                    placeholder="Available Quantity"
-                    className="border p-3 w-full"
-                    onChange={handleChange}
-                />
-
-                <select
-                    name="status"
-                    className="border p-3 w-full"
-                    onChange={handleChange}
-                >
-                    <option value="AVAILABLE">AVAILABLE</option>
-                    <option value="MAINTENANCE">MAINTENANCE</option>
-                    <option value="IN_USE">IN USE</option>
-                </select>
 
                 <button
-                    className="bg-blue-600 text-white px-6 py-3 rounded-lg"
+                    type="submit"
+                    className="bg-blue-600 text-white px-6 py-3 rounded-lg w-full"
                 >
                     Save Equipment
                 </button>

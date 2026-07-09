@@ -27,35 +27,68 @@ export default function LoginPage() {
         });
     };
 
-    const handleSubmit = async (e) => {
+const handleSubmit = async (e) => {
 
-        e.preventDefault();
+    e.preventDefault();
 
-        setLoading(true);
+    setLoading(true);
 
-        try {
+    try {
 
-            const response = await loginUser(formData);
+        const response = await loginUser(formData);
 
-            login({ accessToken: response.data.accessToken });
+        login({
+            accessToken: response.data.accessToken
+        });
 
-            toast.success("Login Successful");
+        const payload = JSON.parse(
+            atob(response.data.accessToken.split(".")[1])
+        );
 
-            navigate("/dashboard");
+        localStorage.setItem("role", payload.role);
 
-        } catch (err) {
+        toast.success("Login Successful");
 
-            toast.error(
-                err.response?.data?.message || "Invalid Username or Password"
-            );
+        switch (payload.role) {
 
-        } finally {
+            case "LAB_MANAGER":
+                navigate("/lab-manager/dashboard");
+                break;
 
-            setLoading(false);
+            case "RESEARCHER":
+                navigate("/researcher-dashboard");
+                break;
+
+            case "DEPARTMENT_HEAD":
+                navigate("/department-head/dashboard");
+                break;
+
+            case "LAB_TECHNICIAN":
+                navigate("/technician/dashboard");
+                break;
+
+            case "SYSTEM_ADMIN":
+                navigate("/system-admin/dashboard");
+                break;
+
+            default:
+                navigate("/");
 
         }
 
-    };
+    } catch (err) {
+
+        toast.error(
+            err.response?.data?.message || "Invalid Username or Password"
+        );
+
+    } finally {
+
+        setLoading(false);
+
+    }
+
+};
 
     return (
 
