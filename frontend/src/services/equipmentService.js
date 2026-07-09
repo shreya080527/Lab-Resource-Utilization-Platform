@@ -1,26 +1,41 @@
 import API from "./api";
 
-// Get all equipment
+// ================= GET ALL EQUIPMENT =================
+
 export const getAllEquipment = () => {
-    return API.get("/api/equipment");
+    return API.get("/api/equipment/get-all-equipments");
 };
 
-// Get equipment by ID
-export const getEquipmentById = (id) => {
-    return API.get(`/api/equipment/${id}`);
+// ================= GET MY EQUIPMENT =================
+
+export const getMyEquipment = () => {
+    return API.get("/api/equipment/get-my-equipments");
 };
 
-// Add equipment
+// ================= GET EQUIPMENT BY ID =================
+
+export const getEquipmentById = (id) =>
+    API.get(`/api/equipment/${id}`);
+// ================= ADD EQUIPMENT =================
+
 export const addEquipment = (equipment) => {
-    return API.post("/api/equipment", equipment);
+    return API.post("/api/equipment/add-equipment", equipment);
 };
 
-// Update equipment
+// ================= UPDATE EQUIPMENT =================
+
 export const updateEquipment = (id, equipment) => {
-    return API.put(`/api/equipment/${id}`, equipment);
+    return API.put(`/api/equipment/update-equipment/${id}`, equipment);
 };
 
-// Delete equipment
+// ================= DELETE EQUIPMENT =================
+
 export const deleteEquipment = (id) => {
-    return API.delete(`/api/equipment/${id}`);
+    return API.delete(`/api/equipment/delete-equipment/${id}`);
+};
+
+// ================= UPDATE EQUIPMENT STATUS =================
+
+export const updateEquipmentStatus = (id, data) => {
+    return API.put(`/api/equipment/update-equipment-status/${id}`, data);
 };

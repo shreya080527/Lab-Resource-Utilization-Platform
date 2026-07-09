@@ -112,5 +112,3 @@ public class EquipmentService {
         return  equipment;
     }
 }
-
-

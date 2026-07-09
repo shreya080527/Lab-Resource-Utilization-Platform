@@ -7,18 +7,20 @@ import java.util.Map;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.example.lab_resource_platform.dto.BookingDto;
+import com.example.lab_resource_platform.dto.EquipmentUtilizationDTO;
 import com.example.lab_resource_platform.dto.ResearcherDashboardDto;
 import com.example.lab_resource_platform.entity.Bookings.Booking;
-import com.example.lab_resource_platform.entity.Bookings.BookingStatus;
 import com.example.lab_resource_platform.service.BookingService;
 
 import lombok.RequiredArgsConstructor;
@@ -66,11 +68,75 @@ public class BookingController {
         return ResponseEntity.ok(bookingService.getCalendar(userId, start, end));
     }
 
-    @PostMapping("/{id}/status")
+    /*@PostMapping("/{id}/status")
     @PreAuthorize("hasAnyRole('RESEARCHER', 'LAB_MANAGER')")
     public ResponseEntity<String> updateStatus(@PathVariable Long id, @RequestParam BookingStatus status) {
         bookingService.updateBookingStatus(id, status);
         return ResponseEntity.ok("Booking status updated to " + status + ". Waitlist verified.");
+    }*/
+    
+    @PutMapping("/{id}/accept")
+    @PreAuthorize("hasRole('LAB_MANAGER')")
+    public ResponseEntity<String> acceptBooking(@PathVariable Long id) {
+        bookingService.acceptBooking(id);
+        return ResponseEntity.ok("Booking accepted successfully.");
+    }
+    
+    @PutMapping("/{id}/reject")
+    @PreAuthorize("hasRole('LAB_MANAGER')")
+    public ResponseEntity<String> rejectBooking(@PathVariable Long id) {
+        bookingService.rejectBooking(id);
+        return ResponseEntity.ok("Booking rejected successfully.");
+    }
+    
+    @PutMapping("/{id}/cancel")
+    @PreAuthorize("hasAnyRole('RESEARCHER')")
+    public ResponseEntity<String> cancelBooking(@PathVariable Long id) {
+        bookingService.cancelBooking(id);
+        return ResponseEntity.ok("Booking cancelled successfully.");
+    }
+    
+    @PutMapping("/{id}/start")
+    @PreAuthorize("hasRole('RESEARCHER')")
+    public ResponseEntity<String> startBooking(
+            @PathVariable Long id,
+            Authentication authentication) {
+
+        bookingService.startBooking(id, authentication);
+
+        return ResponseEntity.ok("Booking started successfully.");
+    }
+    
+    @PutMapping("/{id}/complete")
+    @PreAuthorize("hasAnyRole('RESEARCHER','LAB_MANAGER')")
+    public ResponseEntity<String> completeBooking(
+            @PathVariable Long id,
+            Authentication authentication) {
+
+        bookingService.completeBooking(id, authentication);
+
+        return ResponseEntity.ok("Booking completed successfully.");
+    }
+    
+    @GetMapping("/utilization")
+    @PreAuthorize("hasRole('LAB_MANAGER')")
+    public ResponseEntity<EquipmentUtilizationDTO> getUtilization(
+
+            @RequestParam Long equipmentId,
+
+            @RequestParam
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
+            LocalDateTime start,
+
+            @RequestParam
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
+            LocalDateTime end) {
+
+        return ResponseEntity.ok(
+                bookingService.calculateUtilization(
+                        equipmentId,
+                        start,
+                        end));
     }
     
     @GetMapping("/my-dashboard/{userId}")

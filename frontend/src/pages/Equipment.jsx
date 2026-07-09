@@ -2,7 +2,8 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import {
     getAllEquipment,
-    deleteEquipment
+    deleteEquipment,
+    updateEquipmentStatus
 } from "../services/equipmentService";
 
 export default function Equipment() {
@@ -18,27 +19,44 @@ export default function Equipment() {
     }, []);
 
     async function loadEquipment() {
-
         try {
-
             const response = await getAllEquipment();
             setEquipment(response.data);
-
         } catch (error) {
-
             console.log(error);
-
         }
-
     }
 
     async function removeEquipment(id) {
 
         if (!window.confirm("Delete this equipment?")) return;
 
-        await deleteEquipment(id);
+        try {
+            await deleteEquipment(id);
+            loadEquipment();
+        } catch (err) {
+            console.log(err);
+            alert("Failed to delete equipment");
+        }
+    }
 
-        loadEquipment();
+    async function changeStatus(id, status) {
+
+        try {
+
+            await updateEquipmentStatus(id, {
+                status: status
+            });
+
+            loadEquipment();
+
+        } catch (error) {
+
+            console.log(error);
+
+            alert("Failed to update status");
+
+        }
 
     }
 
@@ -54,7 +72,8 @@ export default function Equipment() {
                     Equipment Management
                 </h1>
 
-                {(role === "LAB_MANAGER" || role === "INSTITUTION_ADMIN") && (
+                {(role === "LAB_MANAGER" ||
+                    role === "INSTITUTION_ADMIN") && (
 
                     <Link
                         to="/equipment/add"
@@ -87,7 +106,9 @@ export default function Equipment() {
                     <option value="">All Categories</option>
                     <option value="Biology">Biology</option>
                     <option value="Electronics">Electronics</option>
+                    <option value="Chemistry">Chemistry</option>
                     <option value="Mechanical">Mechanical</option>
+                    <option value="Manufacturing">Manufacturing</option>
                 </select>
 
             </div>
@@ -98,94 +119,118 @@ export default function Equipment() {
 
                 <thead className="bg-slate-900 text-white">
 
-                <tr>
+                    <tr>
 
-                    <th className="p-3">Name</th>
-                    <th>Category</th>
-                    <th>Quantity</th>
-                    <th>Available</th>
-                    <th>Status</th>
-                    <th>Action</th>
+                        <th className="p-3">Serial</th>
+                        <th>Name</th>
+                        <th>Category</th>
+                        <th>Institution</th>
+                        <th>Status</th>
+                        <th>Action</th>
 
-                </tr>
+                    </tr>
 
                 </thead>
 
                 <tbody>
 
-                {equipment
-                    .filter(item =>
-                        item.equipmentName
-                            .toLowerCase()
-                            .includes(search.toLowerCase())
-                    )
-                    .filter(item =>
-                        category === "" || item.category === category
-                    )
-                    .map(item => (
+                    {equipment
+                        .filter(item =>
+                            item.equipmentName
+                                .toLowerCase()
+                                .includes(search.toLowerCase())
+                        )
+                        .filter(item =>
+                            category === "" || item.category === category
+                        )
+                        .map(item => (
 
-                        <tr
-                            key={item.equipmentId}
-                            className="border-b hover:bg-gray-50"
-                        >
+                            <tr
+                                key={item.id}
+                                className="border-b hover:bg-gray-50"
+                            >
 
-                            <td className="p-3 font-medium">
-                                {item.equipmentName}
-                            </td>
+                                <td className="p-3">
+                                    {item.serial}
+                                </td>
 
-                            <td>{item.category}</td>
+                                <td className="font-medium">
+                                    {item.equipmentName}
+                                </td>
 
-                            <td>{item.quantity}</td>
+                                <td>
+                                    {item.category}
+                                </td>
 
-                            <td>{item.availableQuantity}</td>
+                                <td>
+                                    {item.institution}
+                                </td>
 
-                            <td>
+                                <td>
 
-                                    <span
-                                        className={`px-3 py-1 rounded-full text-white text-sm
+                                    {(role === "LAB_MANAGER" ||
+                                        role === "INSTITUTION_ADMIN") ? (
 
-                                        ${item.status === "AVAILABLE" ? "bg-green-600" : ""}
-
-                                        ${item.status === "MAINTENANCE" ? "bg-yellow-500" : ""}
-
-                                        ${item.status === "IN_USE" ? "bg-red-600" : ""}
-                                        `}
-                                    >
-                                        {item.status}
-                                    </span>
-
-                            </td>
-
-                            <td>
-
-                                {(role === "LAB_MANAGER" ||
-                                    role === "INSTITUTION_ADMIN") && (
-
-                                    <>
-
-                                        <Link
-                                            to={`/equipment/edit/${item.equipmentId}`}
-                                            className="text-blue-600 hover:underline mr-4"
+                                        <select
+                                            value={item.status}
+                                            onChange={(e) =>
+                                                changeStatus(item.id, e.target.value)
+                                            }
+                                            className="border rounded-lg px-3 py-2"
                                         >
-                                            Edit
-                                        </Link>
+                                            <option value="AVAILABLE">AVAILABLE</option>
+                                            <option value="MAINTENANCE">MAINTENANCE</option>
+                                            <option value="IN_USE">IN USE</option>
+                                            <option value="RETIRED">RETIRED</option>
+                                        </select>
 
-                                        <button
-                                            onClick={() => removeEquipment(item.equipmentId)}
-                                            className="text-red-600 hover:underline"
+                                    ) : (
+
+                                        <span
+                                            className={`px-3 py-1 rounded-full text-white text-sm
+                                                ${item.status === "AVAILABLE" ? "bg-green-600" : ""}
+                                                ${item.status === "MAINTENANCE" ? "bg-yellow-500" : ""}
+                                                ${item.status === "IN_USE" ? "bg-red-600" : ""}
+                                                ${item.status === "RETIRED" ? "bg-gray-600" : ""}
+                                            `}
                                         >
-                                            Delete
-                                        </button>
+                                            {item.status}
+                                        </span>
 
-                                    </>
+                                    )}
 
-                                )}
+                                </td>
 
-                            </td>
+                                <td>
 
-                        </tr>
+                                    {(role === "LAB_MANAGER" ||
+                                        role === "INSTITUTION_ADMIN") && (
 
-                    ))}
+                                        <>
+
+                                            <Link
+                                                to={`/equipment/edit/${item.id}`}
+                                                className="text-blue-600 hover:underline mr-4"
+                                            >
+                                                Edit
+                                            </Link>
+
+                                            <button
+                                                onClick={() => removeEquipment(item.id)}
+                                                className="text-red-600 hover:underline"
+                                            >
+                                                Delete
+                                            </button>
+
+                                        </>
+
+                                    )}
+
+                                </td>
+
+                            </tr>
+
+                        ))}
 
                 </tbody>
 
