@@ -66,12 +66,12 @@ public class SecurityConfig {
                 .csrf(customizer -> customizer.disable())
                 .authorizeHttpRequests(request -> request
                         .requestMatchers(
-                                "api/auth/register",
-                                "api/auth/verify",
-                                "api/auth/login",
-                                "api/auth/reset-password-request",
-                                "api/auth/reset-password",
-                                "api/auth/resend-otp")
+                                "/api/auth/register",
+                                "/api/auth/verify",
+                                "/api/auth/login",
+                                "/api/auth/reset-password-request",
+                                "/api/auth/reset-password",
+                                "/api/auth/resend-otp")
                         .permitAll()
                         .anyRequest().authenticated())
                 .logout(logout -> logout.disable());

@@ -70,7 +70,7 @@ public class EquipmentController {
 
     //get all equipments
     @GetMapping("get-all-equipments")
-    @PreAuthorize("hasAnyRole('LAB_MANAGER', 'SYSTEM_ADMIN', ' DEPARTMENT_HEAD', '  INSTITUTION_ADMIN', 'LAB_TECHNICIAN')")
+    @PreAuthorize("hasAnyRole('LAB_MANAGER','RESEARCHER', 'SYSTEM_ADMIN', ' DEPARTMENT_HEAD', '  INSTITUTION_ADMIN', 'LAB_TECHNICIAN')")
     public ResponseEntity<?> getAllEquipments() {
         try {
             return ResponseEntity.ok( equipmentService.getAllEquipments());
