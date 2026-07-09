@@ -3,20 +3,24 @@ package com.example.lab_resource_platform.service;
 import java.time.LocalDateTime;
 import java.util.List;
 
+import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.example.lab_resource_platform.dto.EquipmentUtilizationDTO;
 import com.example.lab_resource_platform.dto.ResearcherDashboardDto;
 import com.example.lab_resource_platform.entity.Waitlist;
 import com.example.lab_resource_platform.entity.Bookings.Booking;
 import com.example.lab_resource_platform.entity.Bookings.BookingStatus;
 import com.example.lab_resource_platform.entity.equipment.Equipment;
+import com.example.lab_resource_platform.entity.user.Role;
 import com.example.lab_resource_platform.entity.user.User;
 import com.example.lab_resource_platform.repository.BookingRepository;
 import com.example.lab_resource_platform.repository.WaitlistRepository;
 import com.example.lab_resource_platform.repository.auth.UserRepo;
 import com.example.lab_resource_platform.repository.equipment.EquipmentRepo;
 
+import java.time.Duration;
 import lombok.RequiredArgsConstructor;
 
 @Service
@@ -75,24 +79,181 @@ public class BookingService {
     public List<Booking> getCalendar(Long userId, LocalDateTime start, LocalDateTime end) {
         return bookingRepository.findBookingsInCalendarRange(userId, start, end);
     }
+    
+    private Booking getBooking(Long bookingId) {
+
+        return bookingRepository.findById(bookingId)
+                .orElseThrow(() ->
+                        new RuntimeException("Booking not found."));
+    }
+    
     @Transactional
-    public void updateBookingStatus(Long bookingId, BookingStatus targetStatus) {
+    public void acceptBooking(Long bookingId) {
+
+        Booking booking = getBooking(bookingId);
+
+        if (booking.getStatus() != BookingStatus.PENDING) {
+            throw new IllegalArgumentException(
+                    "Only pending bookings can be accepted.");
+        }
+
+        booking.setStatus(BookingStatus.CONFIRMED);
+
+        bookingRepository.save(booking);
+    }
+    
+    @Transactional
+    public void rejectBooking(Long bookingId) {
+
+        Booking booking = getBooking(bookingId);
+
+        if (booking.getStatus() != BookingStatus.PENDING) {
+            throw new IllegalArgumentException(
+                    "Only pending bookings can be rejected.");
+        }
+
+        booking.setStatus(BookingStatus.REJECTED);
+
+        bookingRepository.save(booking);
+    }
+    
+    @Transactional
+    public void cancelBooking(Long bookingId) {
+
+        Booking booking = getBooking(bookingId);
+
+        if (booking.getStatus() != BookingStatus.PENDING &&
+        	    booking.getStatus() != BookingStatus.CONFIRMED) {
+        	throw new IllegalArgumentException("Only pending or confirmed bookings can be cancelled.");
+        }
+
+        booking.setStatus(BookingStatus.CANCELLED);
+
+        bookingRepository.save(booking);
+
+        promoteNextEligibleWaitlist(
+                booking.getEquipment().getId());
+    }
+    
+    @Transactional
+    public void startBooking(Long bookingId, Authentication authentication) {
+
         Booking booking = bookingRepository.findById(bookingId)
                 .orElseThrow(() -> new RuntimeException("Booking not found."));
 
-        if (targetStatus != BookingStatus.CANCELLED && targetStatus != BookingStatus.COMPLETED) {
-            booking.setStatus(targetStatus);
-            bookingRepository.save(booking);
-            return;
+        User loggedInUser = userRepository.findByEmail(authentication.getName())
+                .orElseThrow(() -> new RuntimeException("User not found."));
+
+        if (!booking.getUser().getId().equals(loggedInUser.getId())) {
+            throw new IllegalArgumentException(
+                    "You can only start your own booking.");
         }
 
-        // Logic triggers if booking is cancelled or marked completed
-        booking.setStatus(targetStatus);
+        if (booking.getStatus() != BookingStatus.CONFIRMED) {
+            throw new IllegalArgumentException(
+                    "Only confirmed bookings can be started.");
+        }
+
+        booking.setStatus(BookingStatus.IN_PROGRESS);
+
+        bookingRepository.save(booking);
+    }
+    
+    @Transactional
+    public void completeBooking(Long bookingId,
+                                Authentication authentication) {
+
+        Booking booking = bookingRepository.findById(bookingId)
+                .orElseThrow(() -> new RuntimeException("Booking not found."));
+
+        User loggedInUser = userRepository.findByEmail(authentication.getName())
+                .orElseThrow(() -> new RuntimeException("User not found."));
+        /*
+         * Researchers can complete only their own booking.
+         * Managers can complete any booking.
+         */
+
+        if (loggedInUser.getRole() == Role.RESEARCHER &&
+                !booking.getUser().getId().equals(loggedInUser.getId())) {
+
+            throw new IllegalArgumentException(
+                    "Researchers can complete only their own bookings.");
+        }
+
+        if (booking.getStatus() != BookingStatus.IN_PROGRESS) {
+            throw new IllegalArgumentException(
+                    "Only bookings in progress can be completed.");
+        }
+
+        booking.setStatus(BookingStatus.COMPLETED);
+
         bookingRepository.save(booking);
 
-        // Scan queue to elevate the next waitlisted researcher
-        promoteNextEligibleWaitlist(booking.getEquipment().getId());
+        promoteNextEligibleWaitlist(
+                booking.getEquipment().getId());
     }
+    
+    @Transactional(readOnly = true)
+    public EquipmentUtilizationDTO calculateUtilization(
+            Long equipmentId,
+            LocalDateTime periodStart,
+            LocalDateTime periodEnd) {
+
+        Equipment equipment = equipmentRepository.findById(equipmentId)
+                .orElseThrow(() ->
+                        new RuntimeException("Equipment not found."));
+
+        List<BookingStatus> statuses = List.of(
+                BookingStatus.CONFIRMED,
+                BookingStatus.IN_PROGRESS,
+                BookingStatus.COMPLETED);
+
+        List<Booking> bookings =
+                bookingRepository.findBookingsForUtilization(
+                        equipmentId,
+                        periodStart,
+                        periodEnd,
+                        statuses);
+
+        double bookedHours = 0;
+
+        for (Booking booking : bookings) {
+
+            LocalDateTime effectiveStart =
+                    booking.getStartTime().isAfter(periodStart)
+                            ? booking.getStartTime()
+                            : periodStart;
+
+            LocalDateTime effectiveEnd =
+                    booking.getEndTime().isBefore(periodEnd)
+                            ? booking.getEndTime()
+                            : periodEnd;
+
+            bookedHours +=
+                    Duration.between(effectiveStart, effectiveEnd)
+                            .toMinutes() / 60.0;
+        }
+
+        double availableHours =
+                Duration.between(periodStart, periodEnd)
+                        .toMinutes() / 60.0;
+
+        double utilization = 0;
+
+        if (availableHours > 0) {
+            utilization =
+                    (bookedHours / availableHours) * 100;
+        }
+
+        return new EquipmentUtilizationDTO(
+                equipment.getId(),
+                equipment.getEquipmentName(),      
+                bookedHours,
+                availableHours,
+                utilization
+        );
+    }
+    
 
     private void promoteNextEligibleWaitlist(Long equipmentId) {
         List<Waitlist> queue = waitlistRepository.findByEquipmentIdOrderByCreatedAtAsc(equipmentId);
