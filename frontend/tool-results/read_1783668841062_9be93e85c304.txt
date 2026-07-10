@@ -1,0 +1,202 @@
+     1→     1→# LabFlow — Lab Equipment Booking System · Worklog
+     2→     2→
+     3→     3→This file is the shared worklog. Every agent MUST read it before starting and append a new `---` section after finishing.
+     4→     4→
+     5→     5→---
+     6→     6→Task ID: 1
+     7→     7→Agent: orchestrator (foundation)
+     8→     8→Task: Build the foundation — types, config, utils, API client+wrappers, auth store, router, mock backend, theme, shared components, app shell.
+     9→     9→
+    10→    10→Work Log:
+    11→    11→- Installed `axios` and `jwt-decode`.
+    12→    12→- Created `src/types/index.ts` — all domain types (User, Equipment, Booking, BookingStatus, EquipmentStatus, WaitlistEntry, MyDashboard, UtilizationReport, CalendarEvent, Role, etc.).
+    13→    13→- Created `src/config/rolePermissions.ts` — single `ROLE_PERMISSIONS` map for all 6 roles + `canVisit(role, route)` + `RouteKey` type. RESEARCHER & LAB_MANAGER get full experience; the other 4 get browse-only.
+    14→    14→- Created `src/lib/status.ts` — `BOOKING_STATUS_CONFIG`, `EQUIPMENT_STATUS_CONFIG`, `bookingStatusConfig(status)` (defensive, unknown→gray), `equipmentStatusConfig`, `getAvailableActions(booking, currentUser)` (THE booking state machine, single source of truth), `ACTION_LABELS`, `ACTION_VARIANTS`, `isBookable(status)`.
+    15→    15→- Created `src/lib/constants.ts` — `API_BASE_URL` (default `""` → relative → hits in-app mock; set `NEXT_PUBLIC_API_BASE_URL=http://localhost:8080` for real backend), `TOKEN_KEY="lab-booking-access-token"`, `DEFAULT_OTP="123456"`.
+    16→    16→- Created `src/lib/api/client.ts` — single Axios instance `api`; request interceptor attaches `Authorization: Bearer <token>` from localStorage; response interceptor handles 401 globally (clears token + calls `setUnauthorizedHandler`) and normalizes errors to `{status, message}`. `unwrap<T>(res)` helper.
+    17→    17→- Created `src/lib/api/authApi.ts`, `equipmentApi.ts`, `bookingApi.ts` — fully typed wrappers, one function per endpoint. Note `bookingApi.create` returns a plain string; `isWaitlistMessage(msg)` helper detects the auto-waitlist outcome. `bookingApi.calendar({userId?, equipmentId?, start, end})`.
+    18→    18→- Created `src/store/authStore.ts` — Zustand+persist (persists token only). `login(email,password)` stores token then calls `hydrateUser()` and blocks until user details resolve; throws `{message:"EMAIL_NOT_VERIFIED", email}` if not verified. `hydrateUser()`, `logout()`, `clearSession()`, `setUser()`. State: `user, token, isAuthenticated, hydrated, loading`.
+    19→    19→- Created `src/store/router.ts` — hash-based client router (single Next.js `/` route constraint). `useRouter()` → `{path, query, navigate(to,{replace}), back, init()}`. `matchRoute(pattern, path)` → params|null. Call `init()` once on app mount.
+    20→    20→- Created `src/app/api/[...path]/route.ts` — **mock backend** (catch-all) emulating the full Spring Boot API. Seeds demo users + equipment + bookings. Demo OTP is always `123456`.
+    21→    21→- Updated `src/app/globals.css` — Apple-inspired theme: calm-blue primary (`oklch(0.55 0.19 255)` light / `oklch(0.68 0.16 255)` dark), radius `0.875rem`, SF font stack on body, `.glass`/`.glass-strong` frosted panels, `.shadow-soft`/`.shadow-float`, `.scroll-thin` custom scrollbar, `.no-scrollbar`.
+    22→    22→- Updated `src/app/layout.tsx` — wrapped in `ThemeProvider` (next-themes, attribute="class", defaultTheme="light", enableSystem) + Sonner toaster (`<SonnerToaster position="top-center" richColors closeButton />`).
+    23→    23→- Created shared components in `src/components/shared/`: `StatusBadge`, `EmptyState`, `PageHeader`, `ThemeToggle`, `EquipmentCard`, `BookingCard`, `ActionButtonGroup`, `CalendarView` (custom week view, props `{events: CalendarEventItem[], onSelect?, emptyHint?}`), `UtilizationGauge`, `ConfirmDialog`, `Skeletons` (`CardSkeleton`, `GridSkeleton`, `ListSkeleton`).
+    24→    24→- Created `src/hooks/use-async.ts` — `useAsync<T>(fn, deps)` → `{data, loading, error, refetch, setData}`.
+    25→    25→- Created `src/components/shared/AppShell.tsx` — authenticated shell: desktop fixed sidebar + sticky topbar, mobile top bar (Sheet menu) + bottom tab nav, user dropdown with logout, theme toggle. Renders children inside `max-w-6xl` padded container.
+    26→    26→
+    27→    27→Stage Summary — CONTRACTS every downstream agent must follow:
+    28→    28→
+    29→    29→IMPORTS (all `@/`-aliased):
+    30→    30→- Types: `import type { ... } from "@/types"`
+    31→    31→- Status utils: `import { getAvailableActions, bookingStatusConfig, equipmentStatusConfig, isBookable, BOOKING_STATUS_CONFIG } from "@/lib/status"`
+    32→    32→- API: `import { authApi } from "@/lib/api/authApi"`; `import { equipmentApi } from "@/lib/api/equipmentApi"`; `import { bookingApi, isWaitlistMessage } from "@/lib/api/bookingApi"`
+    33→    33→- Stores: `import { useAuthStore } from "@/store/authStore"`; `import { useRouter, matchRoute } from "@/store/router"`
+    34→    34→- Hooks: `import { useAsync } from "@/hooks/use-async"`
+    35→    35→- Shared components: `@/components/shared/{StatusBadge,EmptyState,PageHeader,EquipmentCard,BookingCard,ActionButtonGroup,CalendarView,UtilizationGauge,ConfirmDialog,Skeletons}`
+    36→    36→- shadcn/ui already installed at `@/components/ui/*` (button, card, input, label, textarea, select, tabs, table, dialog, alert-dialog, dropdown-menu, avatar, badge, sheet, popover, tooltip, calendar, scroll-area, separator, progress, skeleton, sonner, checkbox, radio-group, switch, slider, command, breadcrumb, pagination, etc.)
+    37→    37→- Icons: `lucide-react`
+    38→    38→- Dates: `date-fns` (format, parseISO, addDays, etc.)
+    39→    39→- Charts: `recharts`
+    40→    40→- Toasts: `import { toast } from "sonner"` → `toast.success("…")`, `toast.error("…")`, `toast("…")` for info/amber
+    41→    41→
+    42→    42→ROUTER:
+    43→    43→- `const { path, query, navigate } = useRouter();`
+    44→    44→- `navigate("/equipment/3")`, `navigate("/login", { replace: true })`
+    45→    45→- `query.equipmentId` etc. for `?key=value` params
+    46→    46→- `matchRoute("/equipment/:id", path)` → `{id:"3"}` or null
+    47→    47→
+    48→    48→AUTH:
+    49→    49→- `const { user, isAuthenticated, hydrated, login, logout } = useAuthStore();`
+    50→    50→- `login(email, password)` resolves to User, OR throws `{message}` (generic) or `{message:"EMAIL_NOT_VERIFIED", email}` (must route to `/verify-otp` with that email).
+    51→    51→- Demo logins: `researcher@demo.com` / `password` (RESEARCHER), `manager@demo.com` / `password` (LAB_MANAGER). Demo OTP: `123456`.
+    52→    52→
+    53→    53→API NOTES:
+    54→    54→- `bookingApi.create(...)` returns a STRING. Use `isWaitlistMessage(msg)` → amber info toast "Added to waitlist" (NOT an error); else success toast.
+    55→    55→- `equipmentApi.deleteEquipment(id)` returns a plain string.
+    56→    56→- `bookingApi.calendar` accepts optional `userId` and `equipmentId` + required `start`/`end` ISO. Returns `Booking[]`.
+    57→    57→- `bookingApi.myDashboard(userId)` → `{bookings: Booking[], waitlistEntries: WaitlistEntry[]}` (bookings excludes WAITLIST; waitlistEntries have `{id, equipment, requestedStart, requestedEnd, position, bookingId?}`).
+    58→    58→- `bookingApi.utilization({equipmentId, start, end})` → `{equipmentId, equipmentName, bookedHours, availableHours, utilizationPercentage}`.
+    59→    59→- Booking actions return the updated `Booking`: `accept/reject/start/cancel/complete` (PUT) and `updateStatus(bookingId, status)` (POST).
+    60→    60→- Errors reject with `{status, message}` — show `err.message` in toasts.
+    61→    61→
+    62→    62→DESIGN RULES:
+    63→    63→- Apple-inspired: generous whitespace, rounded-2xl cards, `.shadow-soft`, frosted `.glass` for bars, calm-blue accent only. NO indigo. Muted status chips via `<StatusBadge>`.
+    64→    64→- Sticky footer rule: AppShell already provides `min-h-screen` + padded main; views should not add their own page-level wrappers that break this.
+    65→    65→- Responsive: mobile-first; use `sm:`/`lg:` breakpoints. Lists: `max-h-96 overflow-y-auto scroll-thin` where appropriate.
+    66→    66→- Loading: skeletons (`GridSkeleton`/`ListSkeleton`/`CardSkeleton`), never blank. Errors: inline friendly message. Empty: `<EmptyState>`.
+    67→    67→- Every mutation → toast (success + failure).
+    68→    68→
+    69→    69→FILES OWNED BY EACH DOWNSTREAM TASK (do not touch others' files):
+    70→    70→- 2-a → `src/features/auth/*`
+    71→    71→- 2-b → `src/features/equipment/*`
+    72→    72→- 2-c → `src/features/researcher/*`
+    73→    73→- 2-d → `src/features/manager/*`
+    74→    74→- 2-e → `src/features/browse/*`
+    75→    75→- 3 (orchestrator) → `src/app/page.tsx`, `src/components/shared/AppRoot.tsx`, final wiring + verification.
+    76→    76→
+    77→    77→Each page component should be a default export or named export, `("use client")`, self-contained, accepting no props (reads router/auth stores). Use `useAsync` for data. Navigate via `useRouter().navigate`.
+    78→    78→
+    79→    79→---
+    80→    80→Task ID: 2-b
+    81→    81→Agent: equipment feature (catalog + detail)
+    82→    82→
+    83→    83→Task: Build the shared equipment catalog (`/equipment`) and equipment detail (`/equipment/:id`) pages.
+    84→    84→
+    85→    85→Work Log:
+    86→    86→- Created `src/features/equipment/EquipmentCatalogPage.tsx` (default export `EquipmentCatalogPage`).
+    87→    87→  - Header via `PageHeader` with the exact title/description from the spec.
+    88→    88→  - Data via `useAsync(() => equipmentApi.getAllEquipment(), [])`. Loading → `GridSkeleton`; Error → inline friendly message with retry button + error text; Empty → `EmptyState` (icon `Boxes`, "No equipment yet", "Check back later or ask your lab manager to add equipment.").
+    89→    89→  - Filters bar inside a frosted `.glass rounded-2xl` card with a 1/2/4-col responsive grid: search `Input` (matches name OR serial, case-insensitive, on `${equipmentName} ${serial}`), category `Select` (distinct values + "All categories"), institution `Select` (distinct values + "All institutions"), status `Select` (All + AVAILABLE / UNDER_MAINTENANCE / RETIRED using `EQUIPMENT_STATUSES`). Footer row shows live "X of Y items" count + "Clear filters" button when any filter is active. A secondary "No matches" `EmptyState` (with its own Clear action) is shown when filtering yields zero rows.
+    90→    90→  - Grid: `grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4` of `<EquipmentCard>`.
+    91→    91→  - `canBook = ROLE_PERMISSIONS[user.role].canBook` (only RESEARCHER → true). `onView={(e) => navigate(\`/equipment/\${e.id}\`)}` and `onBook={(e) => navigate(\`/bookings/new?equipmentId=\${e.id}\`)}`.
+    92→    92→  - Auth via `useAuthStore`, navigation via `useRouter().navigate`. Dark-mode aware, calm-blue accents only, no indigo.
+    93→    93→
+    94→    94→- Created `src/features/equipment/EquipmentDetailPage.tsx` (default export `EquipmentDetailPage`).
+    95→    95→  - Reads id from router: `const { path, navigate } = useRouter(); const m = matchRoute("/equipment/:id", path); const id = Number(m?.id)`. If `Number.isFinite(id) && id > 0` is false → not-found `EmptyState` with a Back button.
+    96→    96→  - No GET-by-id endpoint exists → fetches all equipment via `useAsync(() => equipmentApi.getAllEquipment(), [])` then `find` by id. Loading → `CardSkeleton` (x2, after back link). Error → inline retry panel. Not found → `EmptyState` with "Back to equipment".
+    97→    97→  - Back link "← Equipment" goes to `/manager/equipment` for LAB_MANAGER, otherwise `/equipment` (driven by `user.role`).
+    98→    98→  - Detail card: gradient icon header (same icon resolution as `EquipmentCard` — category → Microscope/Cpu/FlaskConical/Atom/Printer/Boxes), large `Icon` tile in a primary-gradient rounded-2xl, `<StatusBadge status={…} type="equipment" />` top-right, `<h1>` name, then category chip (with `Tag` icon) + serial chip (with `Hash` icon).
+    99→    99→  - Metadata grid (`MetaRow` helper, 1-col mobile / 2-col sm): Institution (`Building2`), Added by (`UserCircle`), Acquired (`CalendarDays` — formatted with `format(parseISO(equipment.acquisitionDate), "d MMM yyyy")`, defensive try/catch falls back to raw string), Status (using `equipmentStatusConfig(...).label`).
+   100→   100→  - Description section (whitespace-pre-line, fallback "No description provided.").
+   101→   101→  - Book/availability banner: if `ROLE_PERMISSIONS[user.role].canBook` AND `equipment.status === "AVAILABLE"` → prominent "Book this equipment" `Button size="lg"` → `navigate(\`/bookings/new?equipmentId=\${id}\`)`. If user can book but status ≠ AVAILABLE → muted "This equipment is currently {status} and can't be booked." wrapped in a `Tooltip` ("Only AVAILABLE equipment can be booked. Try again later or pick a different item."). Otherwise (manager/other roles) → muted helper copy, no book button.
+   102→   102→  - Availability calendar: `CalendarView` from `@/components/shared/CalendarView`. Fetches bookings for the current ISO week via `useAsync(() => bookingApi.calendar({ equipmentId: id, start: startOfWeek(now,{weekStartsOn:1}).toISOString(), end: endOfDay(endOfWeek(now,{weekStartsOn:1})).toISOString() }), [id, weekStart, weekEnd])` — `now`, `weekStart`, `weekEnd` are `useMemo`'d so the fetch is stable. Each `Booking` is converted to a `CalendarEventItem` (`{ id, start: booking.startTime, end: booking.endTime, title: booking.equipment.equipmentName, subtitle: booking.user.username, status: booking.status }`). Passes `emptyHint="No bookings this week."`. Selecting an event → `toast(\`{format(start,"EEE, d MMM · HH:mm")}–{format(end,"HH:mm")} · {title} ({status})\`)` (with try/catch fallback). Calendar's own `cursor` lets the user browse other weeks (the data layer only covers the current week per the spec).
+   103→   103→  - Legend: small bordered card under the calendar showing the booking-status colors actually present in this week's events (or `PENDING / CONFIRMED / IN_PROGRESS / COMPLETED` when there are none), sourced from `BOOKING_STATUS_CONFIG`.
+   104→   104→
+   105→   105→ASSUMPTIONS / NOTES for downstream agents:
+   106→   106→- No `GET /api/equipment/{id}` endpoint exists — the detail page loads the full list and `find`s by id. If a per-id endpoint is added later, swap the `useAsync` call.
+   107→   107→- The availability calendar fetches the **current** ISO week only (per spec). The `CalendarView` still lets the user paginate weeks visually; non-current weeks will appear empty by design. If we want week-aware fetching, the `CalendarView` would need to expose its `cursor` upward (currently internal state).
+   108→   108→- `EquipmentCatalogPage` is reachable by every role via the "equipment" RouteKey; only RESEARCHER sees a Book button (others get browse-only cards via `canBook=false`). LAB_MANAGER navigates back to `/manager/equipment` from the detail page; everyone else to `/equipment`.
+   109→   109→- Both files are pure-read pages — no mutations, so toasts are limited to the calendar event-select info toast on the detail page. No new shared components or hooks were introduced.
+   110→   110→
+   111→   111→Stage Summary:
+   112→   112→- 2 files written, both inside `src/features/equipment/*` (no other directories touched):
+   113→   113→  • `EquipmentCatalogPage.tsx` — catalog with frosted filter bar + responsive `EquipmentCard` grid.
+   114→   114→  • `EquipmentDetailPage.tsx` — detail card with gradient header, metadata, description, book/unavailable banner with tooltip, week availability `CalendarView` + status legend.
+   115→   115→- Default exports only, both `"use client"`, no props — read auth + router stores directly per the foundation contract.
+   116→   116→
+   117→   117→---
+   118→   118→Task ID: 2-c
+   119→   119→Agent: feature-builder (researcher experience)
+   120→   120→
+   121→   121→Work Log:
+   122→   122→- Created `src/features/researcher/ResearcherDashboard.tsx` — default export `ResearcherDashboard`. `"use client"`.
+   123→   123→  - Header via `PageHeader` (title "My Dashboard", description "Your bookings and waitlist at a glance.") with a primary "Book equipment" action → `navigate("/equipment")`.
+   124→   124→  - Data: `useAsync(async () => user ? bookingApi.myDashboard(user.id) : throw({message:"Not authenticated"}), [user?.id])`. Defensive null-check inside the async fn so useAsync's effect (which runs before the auth-aware early-return guard) never throws on `user!.id`.
+   125→   125→  - Loading → `<ListSkeleton count={4} />`. Error → inline dashed panel with `RefreshCw` retry button.
+   126→   126→  - Stat row: 4 rounded-2xl cards in a responsive grid (`grid-cols-2 sm:grid-cols-4`): Pending (PENDING count, `Clock`, amber), Confirmed (CONFIRMED, `CheckCircle2`, blue), In Progress (IN_PROGRESS, `Loader`, cyan), Waitlist (`waitlistEntries.length`, `Hourglass`, orange).
+   127→   127→  - Filter chips via shadcn `<Tabs>` (single TabsList, horizontally scrollable on mobile with `no-scrollbar`): All / Pending / Confirmed / In Progress / Past / Cancelled. Mapping per spec (Past=COMPLETED, Cancelled=CANCELLED|REJECTED).
+   128→   128→  - Bookings rendered as a single-column list of `<BookingCard>` with `currentUser={user}`, `onAction` and `onViewEquipment={(id) => navigate(\`/equipment/\${id}\`)}`.
+   129→   129→  - `onAction` dispatches to `bookingApi.start | cancel | complete` (accept/reject are hidden for researchers by `ActionButtonGroup`); on success → `toast.success(ACTION_SUCCESS[action])` (friendly past-tense copy: started/cancelled/completed) then `refetch()`; on error → `toast.error(err.message)`.
+   130→   130→  - Per-filter `<EmptyState>` with tailored copy + a "Browse equipment" CTA on the All filter.
+   131→   131→  - Waitlist section in a `<Card>` titled "Waitlist": sorted by `position`, each row shows equipment name + formatted requested range (date-fns `format(parseISO(...))`) + `<StatusBadge status="WAITLIST">` + a primary-tinted "Position N" chip. Empty → `<EmptyState>` with `Hourglass` icon, "No waitlisted requests".
+   132→   132→
+   133→   133→- Created `src/features/researcher/CreateBookingPage.tsx` — default export `CreateBookingPage`. `"use client"`.
+   134→   134→  - Reads `equipmentId` from `useRouter().query.equipmentId` (validated to a positive number; invalid/missing → `navigate("/equipment", { replace: true })` via a `useEffect`).
+   135→   135→  - Equipment fetched via `equipmentApi.getAllEquipment()` + client-side `find` (no GET-by-id endpoint). Summary card: gradient microscope tile, name, category · serial, `<StatusBadge type="equipment">`, description, institution/addedBy grid.
+   136→   136→  - Loading → `<CardSkeleton>`; error / not-found → `<EmptyState>` with "Back to equipment" CTA.
+   137→   137→  - Two shadcn `<Input type="datetime-local">` for Start/End with icon Labels. Inline validation: end must be `isAfter(end, start)`, else destructive-colored message. Live duration pill using `differenceInMinutes` + a friendly `formatDuration` ("2 hours", "1 hour 30 minutes", "45 minutes").
+   138→   138→  - Unavailable equipment (status !== "AVAILABLE"): amber banner using `equipmentStatusConfig(status).chip` reading "This equipment is currently {label} and cannot be booked." — submit is disabled but form remains visible. Date inputs are also disabled.
+   139→   139→  - Conflict detection BEFORE submit: when both dates are valid, builds a padded range (±1 day around the requested slot) and calls `bookingApi.calendar({equipmentId, start, end})` via a second `useAsync` keyed on the ISO strings. Overlap test = `s1 < e2 && s2 < e1` against any active booking (PENDING/CONFIRMED/IN_PROGRESS) on this equipment. On conflict → amber info banner (PENDING chip styling) listing up to 3 conflicting bookings with their status dot color. Submit stays enabled (per spec §10 — server will auto-waitlist).
+   140→   140→  - Submit: `bookingApi.create({userId, equipmentId, startTime: new Date(startValue).toISOString(), endTime: new Date(endValue).toISOString()})`. The returned string is fed to `isWaitlistMessage(msg)`:
+   141→   141→    * waitlisted → `toast("Added to waitlist — you'll be promoted when a slot frees up.")` (sonner info/amber toast via the no-variant call),
+   142→   142→    * else → `toast.success("Booking submitted — awaiting manager approval.")`.
+   143→   143→    Then `navigate("/dashboard", { replace: true })`. On error → `toast.error(err.message)` and the user stays on the form.
+   144→   144→  - Buttons: "Request booking" (primary, with `Loader2` spinner while submitting, label flips to "Submitting…") and "Cancel" (outline → `navigate(\`/equipment/\${equipmentId}\`)`).
+   145→   145→
+   146→   146→Stage Summary — CONTRACTS/ASSUMPTIONS:
+   147→   147→- All imports use the `@/` alias per worklog (types, status utils, API wrappers, auth store, router, hooks, shared components, shadcn ui, lucide-react, sonner, date-fns).
+   148→   148→- `useAsync` is used for both the dashboard fetch and the equipment list + calendar conflict check. The dashboard fn is null-safe re: `user` because `useAsync`'s effect runs on the first render before the auth-aware guard short-circuits.
+   149→   149→- Conflict detection is **client-side advisory only** — the server is the source of truth (it auto-waitlists conflicting requests). The amber banner lists up to 3 overlapping active bookings for context.
+   150→   150→- The waitlist outcome of `bookingApi.create` is detected by message content via `isWaitlistMessage(msg)` (matches `/waitlist/i`). Two distinct HTTP-200 strings share the same response code in the contract; we never assume a status code.
+   151→   151→- No files outside `src/features/researcher/` were touched. No dev server / build / lint run, per instructions.
+   152→   152→- Routing: this task assumes Task 3 (orchestrator) wires `/dashboard` → `ResearcherDashboard` and `/bookings/new?equipmentId=N` (or `/equipment/:id/book` — TBD by orchestrator) → `CreateBookingPage`. The page itself only reads `query.equipmentId`.
+   153→   153→
+   154→   154→---
+   155→   155→Task ID: 2-a
+   156→   156→Agent: auth-views
+   157→   157→Task: Build the authentication views — AuthLayout, LoginPage, RegisterPage, VerifyOtpPage, ForgotPasswordPage, ResetPasswordPage.
+   158→   158→
+   159→   159→Work Log:
+   160→   160→- Created `src/features/auth/AuthLayout.tsx` (named export `AuthLayout` + default). Apple-inspired split layout: left brand panel with a fixed calm-blue gradient (`linear-gradient(150deg, oklch(0.58 0.19 255) → oklch(0.36 0.15 262))`), FlaskConical logo in a frosted rounded-2xl tile, "LabFlow" wordmark, tagline "University lab equipment, booked beautifully.", decorative blurred glows, and a frosted "Demo accounts" card listing researcher@demo.com / manager@demo.com (password `password`, OTP `123456`). Right side renders `children` in a `glass-strong` frosted card (rounded-2xl, shadow-soft, border-border/60) with `title` above, optional `subtitle` (typed `React.ReactNode` so rich subtitle text is supported), `children`, and `footer` below a divider. `min-h-screen` grid with `lg:grid-cols-[1.05fr_1fr]`; brand panel hidden below `lg`, replaced by a compact logo+wordmark header above the card. Both panels vertically center their content on the viewport. Dark-mode aware via theme tokens.
+   161→   161→- Created `src/features/auth/LoginPage.tsx` (default export). Email + password fields (h-11, rounded-xl inputs) using shadcn Input/Label/Button. Calls `useAuthStore((s) => s.login)(email, password)`. On success → `toast.success("Welcome back, {user.username}")` + `navigate(ROLE_PERMISSIONS[user.role].landing)`. On `EMAIL_NOT_VERIFIED` → `toast.error("Please verify your email first")` + `navigate("/verify-otp?email=<submitted email>")`. Other errors → `toast.error(err.message)`. Two quick-fill chips (Researcher / Lab Manager) prefill demo creds. "Forgot password?" link → `/forgot-password`. Footer "Don't have an account? Register" → `/register`. Loading spinner on submit button; show/hide password toggle (Eye/EyeOff) with aria-label.
+   162→   162→- Created `src/features/auth/RegisterPage.tsx` (default export). Fields: username, email, password (min 8), confirm password (match), role (shadcn `Select` populated from `ROLES` with labels from `ROLE_PERMISSIONS[r].label`), department, institution — laid out in a responsive grid. Full client-side validation via a `validate()` helper with inline error text under each field (red `text-destructive`) and `aria-invalid`. On submit → `authApi.register({...})`. Success → `toast.success("Account created. Verify your email.")` + `navigate("/verify-otp?email=…")`. Error → `toast.error(err.message)`. Footer "Already have an account? Log in" → `/login`. Password visibility toggle.
+   163→   163→- Created `src/features/auth/VerifyOtpPage.tsx` (default export). Two-step: if no `query.email`, shows an email input first (with validation + `autoFocus`); otherwise jumps straight to OTP entry. Uses shadcn `InputOTP` (6 slots, `size-11 text-base` for larger touch targets) from `@/components/ui/input-otp`. "Resend OTP" button → `authApi.resendOtp(email)` → `toast.success("OTP resent")`. On 6-digit entry → `authApi.verify(email, otp)`. Success → `toast.success("Email verified. Please log in.")` + `navigate("/login", { replace: true })`. Error → `toast.error(err.message)`. "Demo OTP: 123456" hint chip. Footer offers "Back to login" + "Use a different email".
+   164→   164→- Created `src/features/auth/ForgotPasswordPage.tsx` (default export). Single email field with a leading Mail icon. On submit → `authApi.resetPasswordRequest(email)` (returns plain text, ignored). Success → `toast.success("Reset code sent to your email")` + `navigate("/reset-password?email=…")`. Error → `toast.error(err.message)`. Footer "Back to login" link → `/login`.
+   165→   165→- Created `src/features/auth/ResetPasswordPage.tsx` (default export). Prefills email from `query.email` (editable). Fields: email, OTP (6-digit InputOTP), new password (min 8, with show/hide toggle), confirm password (match). Inline validation + `aria-invalid`. On submit → `authApi.resetPassword(email, newPassword, otp)`. Success → `toast.success("Password changed. Please log in.")` + `navigate("/login", { replace: true })`. Error → `toast.error(err.message)`. "Demo OTP: 123456" hint chip. Footer "Back to login".
+   166→   166→- All 6 files are `"use client"` and use the foundation contracts verbatim: `useAuthStore` from `@/store/authStore`, `useRouter` from `@/store/router`, `authApi` from `@/lib/api/authApi`, `ROLE_PERMISSIONS` from `@/config/rolePermissions`, `ROLES`/`Role` from `@/types`, shadcn `@/components/ui/*`, `toast` from `sonner`, icons from `lucide-react`. Apple-inspired styling throughout: `rounded-xl`/`rounded-2xl`, `h-11` inputs, `shadow-soft`/`glass-strong` card, `transition-all duration-200`, calm-blue primary only (no indigo), dark-mode via theme tokens (`bg-background`, `text-foreground`, `border-border`, `text-muted-foreground`, etc.). Every submit button shows an `animate-spin` border spinner while loading. Every input has a `<Label htmlFor>`. Icon-only buttons (password toggle) have `aria-label`.
+   167→   167→
+   168→   168→Assumptions:
+   169→   169→- `AuthLayout.subtitle` typed as `React.ReactNode` (not just `string`) so VerifyOtpPage can bold the user's email inline; orchestrator/wiring should treat it as renderable.
+   170→   170→- Navigation links are implemented as `<button>` elements calling `navigate()` (not `<a href>`), since the hash router's `navigate` is the documented API and avoids stale href parsing.
+   171→   171→- `useAuthStore((s) => s.login)` selector form is used in LoginPage (equivalent to `useAuthStore.getState().login`); both are valid per the worklog.
+   172→   172→- The brand-panel gradient is a fixed oklch blue (not theme-token-driven) so it renders identically in light/dark with white text — this is intentional for the marketing-style hero.
+   173→   173→- RegisterPage does NOT auto-login after register; it routes to `/verify-otp` per spec (matches the backend's email-verification gate).
+   174→   174→- VerifyOtpPage's "Use a different email" button clears the email state and loops back to the email-entry step (no navigation).
+   175→   175→
+   176→   176→Stage Summary — AUTH VIEWS READY FOR WIRING:
+   177→   177→- Files: `src/features/auth/{AuthLayout,LoginPage,RegisterPage,VerifyOtpPage,ForgotPasswordPage,ResetPasswordPage}.tsx` — all `"use client"`, default exports except `AuthLayout` (named + default).
+   178→   178→- Routes the orchestrator (task 3) should map in `AppRoot`:
+   179→   179→  - `/login` → `<LoginPage />`
+   180→   180→  - `/register` → `<RegisterPage />`
+   181→   181→  - `/verify-otp` → `<VerifyOtpPage />` (reads `?email=`)
+   182→   182→  - `/forgot-password` → `<ForgotPasswordPage />`
+   183→   183→  - `/reset-password` → `<ResetPasswordPage />` (reads `?email=`)
+   184→   184→- All auth views render their own full-viewport `AuthLayout` (NOT wrapped in `AppShell`), so the router guard should render them directly when the route matches and the user is unauthenticated/hydrated.
+   185→   185→- Login success redirects to `ROLE_PERMISSIONS[user.role].landing` (`/dashboard` for RESEARCHER, `/manager/dashboard` for LAB_MANAGER, `/browse` for the other 4 roles).
+   186→   186→
+   187→   187→---
+   188→   188→Task ID: 2-e
+   189→   189→Agent: feature-builder (browse-only placeholder)
+   190→   190→
+   191→   191→Task: Build the read-only landing page for the four undocumented roles (LAB_TECHNICIAN, DEPARTMENT_HEAD, INSTITUTION_ADMIN, SYSTEM_ADMIN) at `/browse`.
+   192→   192→
+   193→   193→Work Log:
+   194→   194→- Created `src/features/browse/BrowsePlaceholder.tsx` (default export `BrowsePlaceholder`, `"use client"`, no props). Single file, no other directories touched.
+   195→   195→  - Reads `user` from `useAuthStore((s) => s.user)` and `navigate` from `useRouter()`. Role display name comes from `ROLE_PERMISSIONS[user.role].label` (foundation contract — never a hard-coded role string). Defensive fallbacks when `user` is null (`username → "there"`, `roleLabel → "Browse only"`) so the page never crashes during the brief pre-hydration render.
+   196→   196→  - Layout: a flex column `min-h-[calc(100vh-7rem)] items-center justify-center gap-8 py-10 sm:py-14 lg:py-16` that vertically centers the hero + preview stack within AppShell's padded main (no page-level `min-h-screen` wrapper, per the sticky-footer rule). Responsive: hero and 3-up grid stack on mobile, sit side-by-side on `sm+`.
+   197→   197→  - Hero card: `relative w-full max-w-2xl overflow-hidden rounded-2xl border border-border/60 glass-strong shadow-float` with three decorative calm-blue gradient accents (top wash `from-primary/12 via-primary/4 to-transparent` + top-right `bg-primary/15 blur-3xl` glow + bottom-left `bg-primary/10 blur-3xl` glow), all `aria-hidden` + `pointer-events-none`. Frosted glass via foundation `.glass-strong`.
+   198→   198→  - Large gradient icon tile: `size-16 sm:size-20 rounded-2xl bg-gradient-to-br from-primary to-primary/70 text-primary-foreground ring-1 ring-primary/20 shadow-soft` housing the lucide `Telescope` icon (`size-8 sm:size-10`). `Compass` was the other allowed option; `Telescope` was chosen for the "explore/discover" vibe. Verified present in `lucide-react@^0.525.0`.
+   199→   199→  - Heading `Welcome, {username}` (`text-2xl sm:text-[28px] font-semibold tracking-tight`), followed by a role chip pill (`inline-flex rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary ring-1 ring-inset ring-primary/15` with a small primary dot) showing `{Role Label}`.
+   200→   200→  - Body copy verbatim per spec: "Your role's full dashboard is coming soon. In the meantime, you can browse the equipment catalog read-only."
+
+[showing lines 1-200 of 610; use offset=201 with limit to continue reading]
