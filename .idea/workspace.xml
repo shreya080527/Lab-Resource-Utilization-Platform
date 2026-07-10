@@ -5,67 +5,147 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="cac17fe5-82bb-490f-9cf7-d590a981792b" name="Changes" comment="">
+      <change beforePath="$PROJECT_DIR$/.idea/vcs.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/.gitignore" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/.oxlintrc.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/README.md" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/eslint.config.js" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/index.html" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/package-lock.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/package.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/public/favicon.svg" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/public/icons.svg" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/App.css" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/App.jsx" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/assets/hero.png" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/assets/react.svg" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/assets/vite.svg" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/components/common/ErrorCard.jsx" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/components/common/LoadingSpinner.jsx" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/components/equipment/AppLayout.jsx" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/components/equipment/EquipmentList.jsx" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/components/equipment/EquipmentStatusChart.jsx" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/components/equipment/EquipmentTable.jsx" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/components/equipment/Navbar.jsx" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/components/equipment/RecentEquipment.jsx" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/components/equipment/Sidebar.jsx" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/components/equipment/StatCard.jsx" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/components/equipment/Topbar.jsx" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/index.css" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/main.jsx" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/pages/AddEquipment.jsx" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/pages/AddInventory.jsx" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/pages/BookEquipment.jsx" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/pages/BookingCalendar.jsx" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/pages/EditEquipment.jsx" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/pages/Equipment.jsx" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/pages/ForgotPasswordPage.jsx" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/pages/Homepage.jsx" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/pages/Inventory.jsx" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/pages/LabManagerDashboard.jsx" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/pages/LoginPage.jsx" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/pages/MyBookings.jsx" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/pages/NotFound.jsx" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/pages/Profile.jsx" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/pages/ResearcherDashboard.jsx" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/pages/ResetPasswordPage.jsx" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/pages/SignupPage.jsx" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/pages/VerifyOtpPage.jsx" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/services/BookingService.js" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/services/DashboardService.js" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/services/InventoryService.js" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/services/api.js" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/services/authService.js" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/services/context/InventoryService.js" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/services/context/authcontext.jsx" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/services/context/authprovider.jsx" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/services/context/useauth.jsx" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/services/equipmentService.js" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/vite.config.js" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/example/lab_resource_platform/controller/BookingController.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/example/lab_resource_platform/controller/BookingController.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/example/lab_resource_platform/controller/equipment/EquipmentController.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/example/lab_resource_platform/controller/equipment/EquipmentController.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/example/lab_resource_platform/repository/BookingRepository.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/example/lab_resource_platform/repository/BookingRepository.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/example/lab_resource_platform/service/BookingService.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/example/lab_resource_platform/service/BookingService.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/.env" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/.env" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/.gitignore" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/.zscripts/build.sh" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/.zscripts/build.sh" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/.zscripts/dev.pid" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/.zscripts/dev.pid" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/.zscripts/dev.sh" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/.zscripts/dev.sh" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/.zscripts/mini-services-build.sh" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/.zscripts/mini-services-build.sh" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/.zscripts/mini-services-install.sh" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/.zscripts/mini-services-install.sh" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/.zscripts/mini-services-start.sh" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/.zscripts/mini-services-start.sh" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/.zscripts/start.sh" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/.zscripts/start.sh" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/Caddyfile" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/Caddyfile" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/bun.lock" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/bun.lock" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/components.json" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/components.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/db/custom.db" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/db/custom.db" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/download/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/download/README.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/eslint.config.mjs" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/eslint.config.mjs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/examples/websocket/frontend.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/examples/websocket/frontend.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/examples/websocket/server.ts" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/examples/websocket/server.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/index.html" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/index.html" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/mini-services/.gitkeep" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/mini-services/.gitkeep" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/mini-services/api-backend/bun.lock" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/mini-services/api-backend/bun.lock" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/mini-services/api-backend/index.ts" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/mini-services/api-backend/index.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/mini-services/api-backend/package.json" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/mini-services/api-backend/package.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/next.config.ts" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/next.config.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/package.json" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/package.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/postcss.config.mjs" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/postcss.config.mjs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/prisma/schema.prisma" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/prisma/schema.prisma" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/public/logo.svg" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/public/logo.svg" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/public/robots.txt" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/public/robots.txt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/App.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/App.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/components/shared/ActionButtonGroup.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/components/shared/ActionButtonGroup.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/components/shared/AppRoot.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/components/shared/AppRoot.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/components/shared/AppShell.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/components/shared/AppShell.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/components/shared/BookingCard.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/components/shared/BookingCard.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/components/shared/CalendarView.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/components/shared/CalendarView.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/components/shared/CategoryIcon.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/components/shared/CategoryIcon.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/components/shared/ConfirmDialog.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/components/shared/ConfirmDialog.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/components/shared/EmptyState.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/components/shared/EmptyState.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/components/shared/EquipmentCard.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/components/shared/EquipmentCard.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/components/shared/ErrorBoundary.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/components/shared/ErrorBoundary.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/components/shared/PageHeader.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/components/shared/PageHeader.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/components/shared/Skeletons.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/components/shared/Skeletons.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/components/shared/StatusBadge.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/components/shared/StatusBadge.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/components/shared/ThemeToggle.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/components/shared/ThemeToggle.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/components/shared/UtilizationGauge.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/components/shared/UtilizationGauge.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/components/theme-provider.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/components/theme-provider.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/components/ui/accordion.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/components/ui/accordion.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/components/ui/alert-dialog.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/components/ui/alert-dialog.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/components/ui/alert.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/components/ui/alert.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/components/ui/aspect-ratio.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/components/ui/aspect-ratio.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/components/ui/avatar.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/components/ui/avatar.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/components/ui/badge.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/components/ui/badge.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/components/ui/breadcrumb.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/components/ui/breadcrumb.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/components/ui/button.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/components/ui/button.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/components/ui/calendar.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/components/ui/calendar.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/components/ui/card.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/components/ui/card.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/components/ui/carousel.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/components/ui/carousel.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/components/ui/chart.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/components/ui/chart.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/components/ui/checkbox.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/components/ui/checkbox.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/components/ui/collapsible.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/components/ui/collapsible.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/components/ui/command.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/components/ui/command.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/components/ui/context-menu.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/components/ui/context-menu.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/components/ui/dialog.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/components/ui/dialog.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/components/ui/drawer.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/components/ui/drawer.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/components/ui/dropdown-menu.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/components/ui/dropdown-menu.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/components/ui/form.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/components/ui/form.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/components/ui/hover-card.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/components/ui/hover-card.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/components/ui/input-otp.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/components/ui/input-otp.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/components/ui/input.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/components/ui/input.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/components/ui/label.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/components/ui/label.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/components/ui/menubar.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/components/ui/menubar.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/components/ui/navigation-menu.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/components/ui/navigation-menu.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/components/ui/pagination.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/components/ui/pagination.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/components/ui/popover.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/components/ui/popover.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/components/ui/progress.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/components/ui/progress.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/components/ui/radio-group.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/components/ui/radio-group.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/components/ui/resizable.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/components/ui/resizable.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/components/ui/scroll-area.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/components/ui/scroll-area.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/components/ui/select.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/components/ui/select.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/components/ui/separator.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/components/ui/separator.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/components/ui/sheet.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/components/ui/sheet.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/components/ui/sidebar.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/components/ui/sidebar.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/components/ui/skeleton.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/components/ui/skeleton.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/components/ui/slider.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/components/ui/slider.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/components/ui/sonner.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/components/ui/sonner.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/components/ui/switch.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/components/ui/switch.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/components/ui/table.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/components/ui/table.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/components/ui/tabs.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/components/ui/tabs.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/components/ui/textarea.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/components/ui/textarea.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/components/ui/toast.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/components/ui/toast.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/components/ui/toaster.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/components/ui/toaster.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/components/ui/toggle-group.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/components/ui/toggle-group.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/components/ui/toggle.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/components/ui/toggle.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/components/ui/tooltip.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/components/ui/tooltip.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/config/rolePermissions.ts" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/config/rolePermissions.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/features/auth/AuthLayout.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/features/auth/AuthLayout.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/features/auth/ForgotPasswordPage.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/features/auth/ForgotPasswordPage.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/features/auth/LoginPage.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/features/auth/LoginPage.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/features/auth/RegisterPage.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/features/auth/RegisterPage.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/features/auth/ResetPasswordPage.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/features/auth/ResetPasswordPage.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/features/auth/VerifyOtpPage.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/features/auth/VerifyOtpPage.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/features/browse/BrowsePlaceholder.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/features/browse/BrowsePlaceholder.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/features/equipment/EquipmentCatalogPage.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/features/equipment/EquipmentCatalogPage.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/features/equipment/EquipmentDetailPage.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/features/equipment/EquipmentDetailPage.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/features/landing/LandingPage.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/features/landing/LandingPage.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/features/manager/EquipmentFormPage.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/features/manager/EquipmentFormPage.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/features/manager/ManageEquipmentPage.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/features/manager/ManageEquipmentPage.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/features/manager/ManagerBookingsPage.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/features/manager/ManagerBookingsPage.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/features/manager/ManagerCalendarPage.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/features/manager/ManagerCalendarPage.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/features/manager/ManagerDashboard.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/features/manager/ManagerDashboard.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/features/manager/UtilizationPage.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/features/manager/UtilizationPage.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/features/researcher/CreateBookingPage.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/features/researcher/CreateBookingPage.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/features/researcher/ResearcherDashboard.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/features/researcher/ResearcherDashboard.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/hooks/use-async.ts" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/hooks/use-async.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/hooks/use-mobile.ts" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/hooks/use-mobile.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/hooks/use-toast.ts" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/hooks/use-toast.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/index.css" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/index.css" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/lib/api/authApi.ts" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/lib/api/authApi.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/lib/api/bookingApi.ts" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/lib/api/bookingApi.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/lib/api/client.ts" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/lib/api/client.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/lib/api/equipmentApi.ts" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/lib/api/equipmentApi.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/lib/constants.ts" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/lib/constants.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/lib/db.ts" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/lib/db.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/lib/status.ts" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/lib/status.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/lib/utils.ts" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/lib/utils.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/main.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/main.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/store/authStore.ts" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/store/authStore.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/store/router.ts" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/store/router.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/types/index.ts" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/types/index.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/vite-env.d.ts" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/vite-env.d.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/tailwind.config.ts" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/tailwind.config.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/tool-results/read_1783628621462_0684d120a68a.txt" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/tool-results/read_1783628621462_0684d120a68a.txt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/tool-results/read_1783628625777_8e90518403e0.txt" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/tool-results/read_1783628625777_8e90518403e0.txt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/tool-results/read_1783665517537_ed32969a33d5.txt" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/tool-results/read_1783665517537_ed32969a33d5.txt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/tool-results/read_1783665523233_7bbd0a6d9a49.txt" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/tool-results/read_1783665523233_7bbd0a6d9a49.txt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/tool-results/read_1783668834563_3c7d44f1c50a.txt" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/tool-results/read_1783668834563_3c7d44f1c50a.txt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/tool-results/read_1783668841062_9be93e85c304.txt" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/tool-results/read_1783668841062_9be93e85c304.txt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/tsconfig.json" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/tsconfig.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/vite.config.ts" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/vite.config.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/worklog.md" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/worklog.md" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
