@@ -7,11 +7,18 @@ import {
     Legend
 } from "recharts";
 
+import {
+    Package,
+    CheckCircle,
+    Wrench,
+    AlertTriangle
+} from "lucide-react";
+
 const COLORS = [
-    "#22c55e", // Available
-    "#f59e0b", // In Use
-    "#ef4444", // Maintenance
-    "#6b7280"  // Retired
+    "#22c55e",
+    "#f59e0b",
+    "#ef4444",
+    "#6b7280"
 ];
 
 export default function EquipmentStatusChart({ stats }) {
@@ -40,55 +47,164 @@ export default function EquipmentStatusChart({ stats }) {
 
     ];
 
+    const total =
+        data.reduce((sum, item) => sum + item.value, 0);
+
     return (
 
-        <div className="bg-white rounded-2xl shadow-xl p-6">
+        <div className="grid lg:grid-cols-2 gap-8">
 
-            <h2 className="text-2xl font-bold text-slate-800 mb-6">
+            {/* Chart */}
 
-                Equipment Status Overview
+            <div className="bg-white rounded-3xl shadow-xl p-6">
 
-            </h2>
+                <h2 className="text-2xl font-bold mb-6">
 
-            <ResponsiveContainer
-                width="100%"
-                height={340}
-            >
+                    Equipment Status
 
-                <PieChart>
+                </h2>
 
-                    <Pie
-                        data={data}
-                        dataKey="value"
-                        nameKey="name"
-                        cx="50%"
-                        cy="50%"
-                        outerRadius={115}
-                        label={({ name, value }) => `${name}: ${value}`}
-                    >
+                <ResponsiveContainer
+                    width="100%"
+                    height={340}
+                >
 
-                        {
+                    <PieChart>
 
-                            data.map((entry, index) => (
+                        <Pie
+                            data={data}
+                            dataKey="value"
+                            outerRadius={120}
+                            label
+                        >
 
-                                <Cell
-                                    key={index}
-                                    fill={COLORS[index]}
-                                />
+                            {
 
-                            ))
+                                data.map((entry, index) => (
 
-                        }
+                                    <Cell
+                                        key={index}
+                                        fill={COLORS[index]}
+                                    />
 
-                    </Pie>
+                                ))
 
-                    <Tooltip />
+                            }
 
-                    <Legend />
+                        </Pie>
 
-                </PieChart>
+                        <Tooltip />
 
-            </ResponsiveContainer>
+                        <Legend />
+
+                    </PieChart>
+
+                </ResponsiveContainer>
+
+            </div>
+
+            {/* Dashboard Summary */}
+
+            <div className="bg-white rounded-3xl shadow-xl p-8">
+
+                <h2 className="text-2xl font-bold mb-8">
+
+                    Dashboard Summary
+
+                </h2>
+
+                <div className="space-y-6">
+
+                    <div className="flex justify-between items-center">
+
+                        <div className="flex items-center gap-3">
+
+                            <Package
+                                className="text-blue-600"
+                                size={28}
+                            />
+
+                            <span>Total Equipment</span>
+
+                        </div>
+
+                        <span className="font-bold text-xl">
+
+                            {total}
+
+                        </span>
+
+                    </div>
+
+                    <div className="flex justify-between items-center">
+
+                        <div className="flex items-center gap-3">
+
+                            <CheckCircle
+                                className="text-green-600"
+                                size={28}
+                            />
+
+                            <span>Available</span>
+
+                        </div>
+
+                        <span className="font-bold text-green-600 text-xl">
+
+                            {stats.availableQuantity}
+
+                        </span>
+
+                    </div>
+
+                    <div className="flex justify-between items-center">
+
+                        <div className="flex items-center gap-3">
+
+                            <Wrench
+                                className="text-red-600"
+                                size={28}
+                            />
+
+                            <span>Maintenance</span>
+
+                        </div>
+
+                        <span className="font-bold text-red-600 text-xl">
+
+                            {stats.maintenanceQuantity}
+
+                        </span>
+
+                    </div>
+
+                    <div className="flex justify-between items-center">
+
+                        <div className="flex items-center gap-3">
+
+                            <AlertTriangle
+                                className="text-yellow-500"
+                                size={28}
+                            />
+
+                            <span>Attention Required</span>
+
+                        </div>
+
+                        <span className="font-bold text-yellow-500 text-xl">
+
+                            {
+                                stats.maintenanceQuantity +
+                                stats.retiredQuantity
+                            }
+
+                        </span>
+
+                    </div>
+
+                </div>
+
+            </div>
 
         </div>
 

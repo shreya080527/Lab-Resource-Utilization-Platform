@@ -45,7 +45,18 @@ const handleSubmit = async (e) => {
             atob(response.data.accessToken.split(".")[1])
         );
 
-        localStorage.setItem("role", payload.role);
+        // Save Role
+       localStorage.setItem("role", payload.role);
+
+            localStorage.setItem(
+                 "username",
+             formData.email.split("@")[0]
+            );
+
+        // ✅ Save Username (using email before @)
+        const username = formData.email.split("@")[0];
+
+        localStorage.setItem("username", username);
 
         toast.success("Login Successful");
 
@@ -89,7 +100,6 @@ const handleSubmit = async (e) => {
     }
 
 };
-
     return (
 
         <>

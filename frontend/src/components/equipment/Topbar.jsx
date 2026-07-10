@@ -6,79 +6,96 @@ import {
 } from "lucide-react";
 
 import { useNavigate } from "react-router-dom";
-import { useAuth } from "../../services/context/useauth";
-
 
 export default function Topbar({ title, role }) {
 
-    const username = localStorage.getItem("username") || "User";
-
     const navigate = useNavigate();
 
-    const { logout } = useAuth();
+    const username =
+        localStorage.getItem("username") || "Lab Manager";
+
+    const hour = new Date().getHours();
+
+    const greeting =
+        hour < 12
+            ? "Good Morning"
+            : hour < 17
+                ? "Good Afternoon"
+                : "Good Evening";
 
     function handleLogout() {
 
-        if (!window.confirm("Logout?")) return;
+        localStorage.clear();
 
-        logout();
-
-        localStorage.removeItem("role");
-
-        toast.success("Logged out Successfully 👋");
-
-        setTimeout(() => {
-
-            navigate("/login");
-
-        }, 1200);
+        navigate("/login", {
+            replace: true
+        });
 
     }
 
     return (
 
-        <div className="bg-white shadow-md px-8 py-5 flex justify-between items-center">
+        <div className="bg-white shadow-lg rounded-2xl px-8 py-5 flex justify-between items-center">
+
+            {/* Left */}
 
             <div>
 
-                <h1 className="text-3xl font-bold">
+                <h1 className="text-3xl font-bold text-slate-800">
 
                     {title}
 
                 </h1>
 
-                <p className="text-gray-500">
+                <p className="text-slate-500 mt-2">
 
-                    Welcome back,
+                    {greeting},
 
-                    <span className="ml-1 font-semibold text-cyan-600">
+                    <span className="font-semibold text-cyan-600 ml-2">
 
                         {username}
 
                     </span>
 
+                    👋
+
                 </p>
 
             </div>
 
+            {/* Right */}
+
             <div className="flex items-center gap-5">
 
-                <div className="hidden md:flex items-center gap-2 bg-yellow-100 px-4 py-2 rounded-full">
+                <div className="hidden lg:flex items-center gap-2 bg-yellow-100 text-yellow-700 px-4 py-2 rounded-full">
 
                     <Sun size={18} />
 
-                    Good Day
+                    {greeting}
 
                 </div>
 
-                <Bell
-                    className="text-slate-600"
-                />
+                <button
+                    className="relative"
+                >
 
-                <div className="flex items-center gap-2">
+                    <Bell
+                        size={24}
+                        className="text-slate-700 hover:text-cyan-600 transition"
+                    />
+
+                    <span className="absolute -top-2 -right-2 bg-red-500 text-white text-[10px] rounded-full w-5 h-5 flex items-center justify-center">
+
+                        0
+
+                    </span>
+
+                </button>
+
+                <div className="flex items-center gap-3 bg-slate-100 px-4 py-2 rounded-full">
 
                     <UserCircle
-                        size={35}
+                        size={34}
                         className="text-cyan-600"
                     />
 
@@ -90,7 +107,7 @@ export default function Topbar({ title, role }) {
 
                         </p>
 
-                        <p className="text-sm text-gray-500">
+                        <p className="text-xs text-slate-500">
 
                             {role.replaceAll("_", " ")}
 
@@ -101,11 +118,8 @@ export default function Topbar({ title, role }) {
                 </div>
 
                 <button
-
                     onClick={handleLogout}
-
-                    className="flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white px-5 py-2 rounded-lg"
-
+                    className="flex items-center gap-2 bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-xl transition-all duration-300 hover:scale-105"
                 >
 
                     <LogOut size={18} />
