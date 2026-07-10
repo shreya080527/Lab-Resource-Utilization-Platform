@@ -157,4 +157,9 @@ public class BookingController {
             ));
         }
     }
+    @GetMapping("/all")
+    @PreAuthorize("hasRole('LAB_MANAGER')")
+    public ResponseEntity<List<Booking>> getAllBookings() {
+        return ResponseEntity.ok(bookingService.getAllBookings());
+    }
 }

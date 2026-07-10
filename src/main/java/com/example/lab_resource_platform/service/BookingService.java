@@ -291,4 +291,8 @@ public class BookingService {
         
         return new ResearcherDashboardDto(userBookings, userWaitlist);
     }
+
+    public List<Booking> getAllBookings() {
+        return bookingRepository.findAll();
+    }
 }

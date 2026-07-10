@@ -48,20 +48,15 @@ public class EquipmentController {
 
     // ================= GET EQUIPMENT BY ID =================
 
-    @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('RESEARCHER','LAB_MANAGER','SYSTEM_ADMIN','DEPARTMENT_HEAD','INSTITUTION_ADMIN','LAB_TECHNICIAN')")
+    //get equipment details with id
+    @GetMapping("get-equipment/{id}")
+    @PreAuthorize("hasAnyRole('LAB_MANAGER', 'SYSTEM_ADMIN', 'RESEARCHER', ' DEPARTMENT_HEAD', '  INSTITUTION_ADMIN', 'LAB_TECHNICIAN')")
     public ResponseEntity<?> getEquipment(@PathVariable Long id) {
-
         try {
-
-            return ResponseEntity.ok(equipmentService.getEquipmentById(id));
-
-        } catch (Exception e) {
-
+            return ResponseEntity.ok( equipmentService.getEquipmentDetails(id));
+        }catch (Exception e){
             return ResponseEntity.badRequest().body(e.getMessage());
-
         }
-
     }
 
     // ================= UPDATE EQUIPMENT =================
@@ -144,15 +139,6 @@ public class EquipmentController {
 
     }
 
-    //get equipment details with id
-    @GetMapping("get-equipment/{id}")
-    @PreAuthorize("hasAnyRole('LAB_MANAGER', 'SYSTEM_ADMIN', 'RESEARCHER', ' DEPARTMENT_HEAD', '  INSTITUTION_ADMIN', 'LAB_TECHNICIAN')")
-    public ResponseEntity<?> getEquipment(@PathVariable Long id) {
-        try {
-            return ResponseEntity.ok( equipmentService.getEquipmentDetails(id));
-        }catch (Exception e){
-            return ResponseEntity.badRequest().body(e.getMessage());
-        }
-    }
+
 
 }

@@ -50,5 +50,7 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
             @Param("statuses") List<BookingStatus> statuses);
     
     List<Booking> findByUserIdOrderByStartTimeAsc(Long userId);
+
+
     
 }
