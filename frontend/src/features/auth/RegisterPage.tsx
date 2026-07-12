@@ -14,9 +14,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { authApi } from "@/lib/api/authApi";
+import { institutionApi, departmentApi } from "@/lib/api/equipmentApi";
+import { useAsync } from "@/hooks/use-async";
 import { useRouter } from "@/store/router";
 import { ROLES } from "@/types";
-import type { Role } from "@/types";
+import type { Institution, Department, Role } from "@/types";
 import { ROLE_PERMISSIONS } from "@/config/rolePermissions";
 import { AuthLayout } from "./AuthLayout";
 
@@ -26,8 +28,8 @@ interface FormState {
   password: string;
   confirmPassword: string;
   role: Role | "";
-  department: string;
-  institution: string;
+  institutionId: number | null;
+  departmentId: number | null;
 }
 
 const INITIAL: FormState = {
@@ -36,8 +38,8 @@ const INITIAL: FormState = {
   password: "",
   confirmPassword: "",
   role: "",
-  department: "",
-  institution: "",
+  institutionId: null,
+  departmentId: null,
 };
 
 type FieldErrors = Partial<Record<keyof FormState, string>>;
@@ -61,9 +63,10 @@ function validate(values: FormState): FieldErrors {
     errors.confirmPassword = "Passwords do not match";
   }
   if (!values.role) errors.role = "Please select a role";
-  if (!values.department.trim()) errors.department = "Department is required";
-  if (!values.institution.trim())
-    errors.institution = "Institution is required";
+  if (values.institutionId == null)
+    errors.institutionId = "Institution is required";
+  if (values.departmentId == null)
+    errors.departmentId = "Department is required";
   return errors;
 }
 
@@ -74,16 +77,39 @@ export default function RegisterPage() {
   const [showPassword, setShowPassword] = React.useState(false);
   const [loading, setLoading] = React.useState(false);
 
+  // Institutions are fetched once on mount.
+  const institutions = useAsync<Institution[]>(
+    () => institutionApi.list(),
+    [],
+  );
+  const institutionList = institutions.data ?? [];
+  const institutionsEmpty =
+    !institutions.loading && !institutions.error && institutionList.length === 0;
+
+  // Departments cascade on the chosen institution.
+  const departments = useAsync<Department[]>(
+    () =>
+      values.institutionId != null
+        ? departmentApi.list(values.institutionId)
+        : Promise.resolve([] as Department[]),
+    [values.institutionId],
+  );
+  const departmentList = departments.data ?? [];
+
   function setField<K extends keyof FormState>(key: K, value: FormState[K]) {
-    setValues((v) => ({ ...v, [key]: value }));
-    // clear field error on edit
-    if (errors[key]) {
-      setErrors((e) => {
-        const next = { ...e };
-        delete next[key];
-        return next;
-      });
-    }
+    setValues((v) => {
+      // Changing institution invalidates the previously chosen department.
+      if (key === "institutionId") {
+        return { ...v, institutionId: value as number | null, departmentId: null };
+      }
+      return { ...v, [key]: value };
+    });
+    setErrors((e) => {
+      const next = { ...e };
+      delete next[key];
+      if (key === "institutionId") delete next.departmentId;
+      return next;
+    });
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -104,8 +130,8 @@ export default function RegisterPage() {
         email: values.email.trim(),
         password: values.password,
         role: values.role as Role,
-        department: values.department.trim(),
-        institution: values.institution.trim(),
+        departmentId: values.departmentId,
+        institutionId: values.institutionId,
       });
       toast.success("Account created. Verify your email.");
       navigate(`/verify-otp?email=${encodeURIComponent(values.email.trim())}`);
@@ -116,6 +142,8 @@ export default function RegisterPage() {
       setLoading(false);
     }
   }
+
+  const submitDisabled = loading || institutionsEmpty;
 
   return (
     <AuthLayout
@@ -196,44 +224,92 @@ export default function RegisterPage() {
         </Field>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {/* Department */}
-          <Field
-            id="department"
-            label="Department"
-            error={errors.department}
-            required
-          >
-            <Input
-              id="department"
-              type="text"
-              placeholder="Biology"
-              value={values.department}
-              onChange={(e) => setField("department", e.target.value)}
-              className="h-11 rounded-xl"
-              disabled={loading}
-              aria-invalid={!!errors.department}
-            />
-          </Field>
-
-          {/* Institution */}
+          {/* Institution (Select) */}
           <Field
             id="institution"
             label="Institution"
-            error={errors.institution}
+            error={errors.institutionId ?? institutions.error ?? undefined}
             required
           >
-            <Input
-              id="institution"
-              type="text"
-              placeholder="State University"
-              value={values.institution}
-              onChange={(e) => setField("institution", e.target.value)}
-              className="h-11 rounded-xl"
-              disabled={loading}
-              aria-invalid={!!errors.institution}
-            />
+            <Select
+              value={values.institutionId != null ? String(values.institutionId) : undefined}
+              onValueChange={(v) => setField("institutionId", Number(v))}
+              disabled={loading || institutions.loading}
+            >
+              <SelectTrigger
+                id="institution"
+                className="h-11 w-full rounded-xl"
+                aria-invalid={!!errors.institutionId}
+              >
+                <SelectValue
+                  placeholder={
+                    institutions.loading
+                      ? "Loading…"
+                      : institutions.error
+                        ? "Failed to load"
+                        : "Select institution"
+                  }
+                />
+              </SelectTrigger>
+              <SelectContent>
+                {institutionList.map((inst) => (
+                  <SelectItem key={inst.id} value={String(inst.id)}>
+                    {inst.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Field>
+
+          {/* Department (Select, cascading) */}
+          <Field
+            id="department"
+            label="Department"
+            error={errors.departmentId ?? (departments.error && values.institutionId != null ? departments.error : undefined)}
+            required
+          >
+            <Select
+              value={values.departmentId != null ? String(values.departmentId) : undefined}
+              onValueChange={(v) => setField("departmentId", Number(v))}
+              disabled={
+                loading ||
+                values.institutionId == null ||
+                departments.loading
+              }
+            >
+              <SelectTrigger
+                id="department"
+                className="h-11 w-full rounded-xl"
+                aria-invalid={!!errors.departmentId}
+              >
+                <SelectValue
+                  placeholder={
+                    values.institutionId == null
+                      ? "Select institution first"
+                      : departments.loading
+                        ? "Loading…"
+                        : departments.error
+                          ? "Failed to load"
+                          : "Select department"
+                  }
+                />
+              </SelectTrigger>
+              <SelectContent>
+                {departmentList.map((dept) => (
+                  <SelectItem key={dept.id} value={String(dept.id)}>
+                    {dept.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </Field>
         </div>
+
+        {institutionsEmpty && (
+          <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-300">
+            No institutions available yet. Please contact an administrator.
+          </p>
+        )}
 
         {/* Password */}
         <Field
@@ -295,7 +371,7 @@ export default function RegisterPage() {
         <Button
           type="submit"
           size="lg"
-          disabled={loading}
+          disabled={submitDisabled}
           className="w-full h-11 rounded-xl text-base font-medium transition-all duration-200 mt-2"
         >
           {loading ? (

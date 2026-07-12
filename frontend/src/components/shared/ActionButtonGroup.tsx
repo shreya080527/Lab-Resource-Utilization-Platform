@@ -1,6 +1,6 @@
 
 import * as React from "react";
-import { Check, X, Play, Square, Ban } from "lucide-react";
+import { Check, X, Play, Square, Ban, UserX } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
@@ -16,6 +16,7 @@ const ACTION_ICONS: Record<BookingAction, React.ComponentType<{ className?: stri
   start: Play,
   cancel: Ban,
   complete: Square,
+  noShow: UserX,
 };
 
 export function ActionButtonGroup({

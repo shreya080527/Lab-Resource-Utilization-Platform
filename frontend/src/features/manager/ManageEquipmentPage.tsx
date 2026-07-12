@@ -7,7 +7,9 @@ import {
   RefreshCw,
   Boxes,
   Building2,
+  Network,
   UserCircle,
+  Tag as TagIcon,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -23,6 +25,7 @@ import { ListSkeleton } from "@/components/shared/Skeletons";
 
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
   Table,
@@ -39,9 +42,15 @@ import {
   SelectContent,
   SelectItem,
 } from "@/components/ui/select";
+import {
+  Tooltip,
+  TooltipTrigger,
+  TooltipContent,
+} from "@/components/ui/tooltip";
 
+import { cn } from "@/lib/utils";
 import { EQUIPMENT_STATUSES } from "@/types";
-import type { Equipment, EquipmentStatus } from "@/types";
+import type { Equipment, EquipmentStatus, Tag } from "@/types";
 
 // ---------------------------------------------------------------------------
 // Status label helper (title-case, mirrors equipmentStatusConfig labels but
@@ -56,6 +65,86 @@ function statusLabel(s: string): string {
 }
 
 // ---------------------------------------------------------------------------
+// Tag chips — renders a flex-wrap list of small badges, or "—" when empty.
+// ---------------------------------------------------------------------------
+
+function TagsCell({ tags }: { tags: Tag[] }) {
+  if (!tags || tags.length === 0) {
+    return <span className="text-sm text-muted-foreground">—</span>;
+  }
+  return (
+    <div className="flex max-w-[180px] flex-wrap gap-1">
+      {tags.map((t) => (
+        <Badge
+          key={t.id}
+          variant="secondary"
+          className="rounded-full px-2 py-0 text-[11px] font-medium"
+        >
+          {t.name}
+        </Badge>
+      ))}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Status select.
+//
+// EQUIPMENT_STATUSES includes BOOKED. When the current status is BOOKED, the
+// select renders DISABLED and is wrapped in a Tooltip explaining the status
+// is auto-set by bookings (managers can't override it manually).
+// ---------------------------------------------------------------------------
+
+function StatusSelect({
+  equipment,
+  disabled,
+  onStatusChange,
+  className,
+}: {
+  equipment: Equipment;
+  disabled: boolean;
+  onStatusChange: (status: EquipmentStatus) => void;
+  className?: string;
+}) {
+  const isBooked = equipment.status === "BOOKED";
+
+  const select = (
+    <Select
+      value={equipment.status}
+      onValueChange={(v) => onStatusChange(v as EquipmentStatus)}
+      disabled={disabled || isBooked}
+    >
+      <SelectTrigger
+        size="sm"
+        className={cn("h-8 rounded-lg text-xs", className)}
+        aria-label={`Change status for ${equipment.equipmentName}`}
+      >
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        {EQUIPMENT_STATUSES.map((s) => (
+          <SelectItem key={s} value={s} className="text-xs">
+            {statusLabel(s)}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+
+  if (isBooked) {
+    return (
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span className="inline-flex">{select}</span>
+        </TooltipTrigger>
+        <TooltipContent>Auto-set by bookings</TooltipContent>
+      </Tooltip>
+    );
+  }
+  return select;
+}
+
+// ---------------------------------------------------------------------------
 // Row actions (shared between table row and mobile card)
 // ---------------------------------------------------------------------------
 
@@ -65,12 +154,14 @@ function RowActions({
   onEdit,
   onStatusChange,
   onDelete,
+  statusClassName = "w-[150px]",
 }: {
   equipment: Equipment;
   statusBusy: boolean;
   onEdit: () => void;
   onStatusChange: (status: EquipmentStatus) => void;
   onDelete: () => void;
+  statusClassName?: string;
 }) {
   return (
     <div className="flex items-center gap-1.5">
@@ -85,26 +176,12 @@ function RowActions({
         <Pencil className="size-4" />
       </Button>
 
-      <Select
-        value={equipment.status}
-        onValueChange={(v) => onStatusChange(v as EquipmentStatus)}
+      <StatusSelect
+        equipment={equipment}
         disabled={statusBusy}
-      >
-        <SelectTrigger
-          size="sm"
-          className="h-8 w-[150px] rounded-lg text-xs"
-          aria-label={`Change status for ${equipment.equipmentName}`}
-        >
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          {EQUIPMENT_STATUSES.map((s) => (
-            <SelectItem key={s} value={s} className="text-xs">
-              {statusLabel(s)}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+        onStatusChange={onStatusChange}
+        className={statusClassName}
+      />
 
       <Button
         variant="ghost"
@@ -187,6 +264,8 @@ function EquipmentList({
             <TableRow className="bg-muted/40">
               <TableHead className="pl-4">Equipment</TableHead>
               <TableHead>Institution</TableHead>
+              <TableHead>Department</TableHead>
+              <TableHead>Tags</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Added by</TableHead>
               <TableHead className="pr-4 text-right">Actions</TableHead>
@@ -211,13 +290,19 @@ function EquipmentList({
                   </div>
                 </TableCell>
                 <TableCell className="text-sm text-muted-foreground">
-                  {e.institution || "—"}
+                  {e.institution?.name ?? "—"}
+                </TableCell>
+                <TableCell className="text-sm text-muted-foreground">
+                  {e.department?.name ?? "—"}
+                </TableCell>
+                <TableCell>
+                  <TagsCell tags={e.tags} />
                 </TableCell>
                 <TableCell>
                   <StatusBadge status={e.status} type="equipment" />
                 </TableCell>
                 <TableCell className="text-sm text-muted-foreground">
-                  {e.addedBy || "—"}
+                  {e.addedByUsername ?? "—"}
                 </TableCell>
                 <TableCell className="pr-4">
                   <div className="flex justify-end">
@@ -266,13 +351,27 @@ function EquipmentList({
               <div className="flex items-center gap-2 text-muted-foreground">
                 <Building2 className="size-3.5 shrink-0" />
                 <span className="truncate text-foreground/90">
-                  {e.institution || "—"}
+                  {e.institution?.name ?? "—"}
+                </span>
+              </div>
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <Network className="size-3.5 shrink-0" />
+                <span className="truncate text-foreground/90">
+                  {e.department?.name ?? "—"}
                 </span>
               </div>
               <div className="flex items-center gap-2 text-muted-foreground">
                 <UserCircle className="size-3.5 shrink-0" />
                 <span className="truncate text-foreground/90">
-                  {e.addedBy || "—"}
+                  {e.addedByUsername ?? "—"}
+                </span>
+              </div>
+              <div className="flex items-start gap-2 text-muted-foreground">
+                <TagIcon className="size-3.5 shrink-0 mt-0.5" />
+                <span className="text-foreground/90">
+                  {e.tags.length > 0
+                    ? e.tags.map((t) => t.name).join(", ")
+                    : "—"}
                 </span>
               </div>
             </div>
@@ -288,26 +387,12 @@ function EquipmentList({
                 Edit
               </Button>
               <div className="flex items-center gap-1.5">
-                <Select
-                  value={e.status}
-                  onValueChange={(v) => onStatusChange(e, v as EquipmentStatus)}
+                <StatusSelect
+                  equipment={e}
                   disabled={statusBusyId === e.id}
-                >
-                  <SelectTrigger
-                    size="sm"
-                    className="h-8 w-[140px] rounded-lg text-xs"
-                    aria-label={`Change status for ${e.equipmentName}`}
-                  >
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {EQUIPMENT_STATUSES.map((s) => (
-                      <SelectItem key={s} value={s} className="text-xs">
-                        {statusLabel(s)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  onStatusChange={(s) => onStatusChange(e, s)}
+                  className="w-[140px]"
+                />
                 <Button
                   variant="ghost"
                   size="sm"
@@ -351,6 +436,8 @@ export default function ManageEquipmentPage() {
     status: EquipmentStatus,
   ) => {
     if (status === equipment.status) return;
+    // Defensive: BOOKED is auto-set by bookings — never allow a manual flip.
+    if (status === "BOOKED" || equipment.status === "BOOKED") return;
     setStatusBusyId(equipment.id);
     try {
       await equipmentApi.updateEquipmentStatus(equipment.id, status);

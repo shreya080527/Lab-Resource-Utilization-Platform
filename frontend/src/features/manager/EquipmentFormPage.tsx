@@ -8,6 +8,7 @@ import {
   Boxes,
   Tag,
   Building2,
+  Network,
   FileText,
   AlertCircle,
 } from "lucide-react";
@@ -16,7 +17,11 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { useRouter, matchRoute } from "@/store/router";
 import { useAsync } from "@/hooks/use-async";
-import { equipmentApi } from "@/lib/api/equipmentApi";
+import {
+  equipmentApi,
+  institutionApi,
+  departmentApi,
+} from "@/lib/api/equipmentApi";
 
 import { PageHeader } from "@/components/shared/PageHeader";
 import { EmptyState } from "@/components/shared/EmptyState";
@@ -27,8 +32,15 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
-import type { EquipmentInput } from "@/types";
+import type { EquipmentInput, Department } from "@/types";
 
 // ---------------------------------------------------------------------------
 // Form state + validation
@@ -39,7 +51,8 @@ interface FormState {
   equipmentName: string;
   category: string;
   description: string;
-  institution: string;
+  institutionId: number | null;
+  departmentId: number | null;
 }
 
 const EMPTY_FORM: FormState = {
@@ -47,7 +60,8 @@ const EMPTY_FORM: FormState = {
   equipmentName: "",
   category: "",
   description: "",
-  institution: "",
+  institutionId: null,
+  departmentId: null,
 };
 
 type FieldErrors = Partial<Record<keyof FormState, string>>;
@@ -58,9 +72,13 @@ function validate(form: FormState): FieldErrors {
   if (!form.equipmentName.trim())
     errs.equipmentName = "Equipment name is required.";
   if (!form.category.trim()) errs.category = "Category is required.";
-  if (!form.institution.trim()) errs.institution = "Institution is required.";
+  if (form.institutionId == null)
+    errs.institutionId = "Institution is required.";
   return errs;
 }
+
+// Sentinel value for the "No department" Select item (department is optional).
+const NO_DEPT = "__none__";
 
 // ---------------------------------------------------------------------------
 // Field component (icon-prefixed label + input + inline error)
@@ -115,59 +133,72 @@ export default function EquipmentFormPage() {
   const editId = editMatch ? Number(editMatch.id) : NaN;
   const isEdit = !!editMatch && Number.isFinite(editId) && editId > 0;
 
-  // Fetch the full list (no GET-by-id endpoint) and find by id when editing.
-  const allAsync = useAsync(
-    () => (isEdit ? equipmentApi.getAllEquipment() : Promise.resolve([])),
-    [isEdit, editId],
-  );
-
-  const editing: FormState | undefined = React.useMemo(() => {
-    if (!isEdit || !allAsync.data) return undefined;
-    const found = allAsync.data.find((e) => e.id === editId);
-    if (!found) return undefined;
-    return {
-      serial: found.serial,
-      equipmentName: found.equipmentName,
-      category: found.category,
-      description: found.description,
-      institution: found.institution,
-    };
-  }, [isEdit, allAsync.data, editId]);
-
   const [form, setForm] = React.useState<FormState>(EMPTY_FORM);
   const [errors, setErrors] = React.useState<FieldErrors>({});
   const [submitted, setSubmitted] = React.useState(false);
   const [saving, setSaving] = React.useState(false);
   const [prefilled, setPrefilled] = React.useState(false);
 
-  // Prefill the form once edit data arrives.
+  // Edit mode — fetch the existing equipment by id (not list+find).
+  const editAsync = useAsync(
+    () =>
+      isEdit
+        ? equipmentApi.getEquipment(editId)
+        : Promise.resolve(null),
+    [isEdit, editId],
+  );
+  const editing = isEdit ? editAsync.data : undefined;
+
+  // Institutions list — for the required Institution select.
+  const institutionsAsync = useAsync(() => institutionApi.list(), []);
+
+  // Cascading departments — refetch when institutionId changes.
+  const departmentsAsync = useAsync(
+    () =>
+      form.institutionId != null
+        ? departmentApi.list(form.institutionId)
+        : Promise.resolve([] as Department[]),
+    [form.institutionId],
+  );
+
+  // Prefill the form once edit data arrives — pull institutionId/departmentId
+  // out of the nested objects on the Equipment entity.
   React.useEffect(() => {
     if (isEdit && editing && !prefilled) {
-      setForm(editing);
+      setForm({
+        serial: editing.serial,
+        equipmentName: editing.equipmentName,
+        category: editing.category,
+        description: editing.description,
+        institutionId: editing.institution?.id ?? null,
+        departmentId: editing.department?.id ?? null,
+      });
       setPrefilled(true);
     }
   }, [isEdit, editing, prefilled]);
 
   // ---------------------------------------------------------------------
-  // Loading / not-found guards for edit mode
+  // Loading / error / not-found guards for edit mode
   // ---------------------------------------------------------------------
-  if (isEdit && allAsync.loading && !allAsync.data) {
+  const backAction = (
+    <Button
+      variant="ghost"
+      size="sm"
+      onClick={() => navigate("/manager/equipment")}
+      className="gap-1.5"
+    >
+      <ArrowLeft className="size-4" />
+      Back
+    </Button>
+  );
+
+  if (isEdit && editAsync.loading && !editAsync.data) {
     return (
       <div className="flex flex-col gap-6">
         <PageHeader
           title="Edit equipment"
           description="Update the details of this lab equipment."
-          actions={
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => navigate("/manager/equipment")}
-              className="gap-1.5"
-            >
-              <ArrowLeft className="size-4" />
-              Back
-            </Button>
-          }
+          actions={backAction}
         />
         <CardSkeleton />
         <CardSkeleton />
@@ -175,23 +206,41 @@ export default function EquipmentFormPage() {
     );
   }
 
-  if (isEdit && !allAsync.loading && allAsync.data && !editing) {
+  if (isEdit && editAsync.error) {
     return (
       <div className="flex flex-col gap-6">
         <PageHeader
           title="Edit equipment"
           description="Update the details of this lab equipment."
-          actions={
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => navigate("/manager/equipment")}
-              className="gap-1.5"
-            >
-              <ArrowLeft className="size-4" />
-              Back
-            </Button>
-          }
+          actions={backAction}
+        />
+        <div className="flex flex-col items-center gap-3 rounded-2xl border border-dashed border-border/70 bg-muted/30 px-6 py-12 text-center">
+          <p className="text-sm font-medium text-foreground">
+            Couldn’t load equipment.
+          </p>
+          <p className="max-w-sm text-sm text-muted-foreground">
+            {editAsync.error}
+          </p>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={editAsync.refetch}
+            className="gap-1.5"
+          >
+            Retry
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  if (isEdit && !editAsync.loading && !editAsync.data) {
+    return (
+      <div className="flex flex-col gap-6">
+        <PageHeader
+          title="Edit equipment"
+          description="Update the details of this lab equipment."
+          actions={backAction}
         />
         <EmptyState
           icon={Boxes}
@@ -212,63 +261,15 @@ export default function EquipmentFormPage() {
     );
   }
 
-  if (isEdit && allAsync.error) {
+  // Data loaded but prefill effect hasn't run yet — keep the skeleton on
+  // screen so the user never sees a flash of empty form.
+  if (isEdit && editAsync.data && !prefilled) {
     return (
       <div className="flex flex-col gap-6">
         <PageHeader
           title="Edit equipment"
           description="Update the details of this lab equipment."
-          actions={
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => navigate("/manager/equipment")}
-              className="gap-1.5"
-            >
-              <ArrowLeft className="size-4" />
-              Back
-            </Button>
-          }
-        />
-        <div className="flex flex-col items-center gap-3 rounded-2xl border border-dashed border-border/70 bg-muted/30 px-6 py-12 text-center">
-          <p className="text-sm font-medium text-foreground">
-            Couldn’t load equipment.
-          </p>
-          <p className="max-w-sm text-sm text-muted-foreground">
-            {allAsync.error}
-          </p>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={allAsync.refetch}
-            className="gap-1.5"
-          >
-            Retry
-          </Button>
-        </div>
-      </div>
-    );
-  }
-
-  // Data loaded and equipment found, but the prefill effect hasn't run yet.
-  // Keep the skeleton on screen so the user never sees a flash of empty form.
-  if (isEdit && allAsync.data && editing && !prefilled) {
-    return (
-      <div className="flex flex-col gap-6">
-        <PageHeader
-          title="Edit equipment"
-          description="Update the details of this lab equipment."
-          actions={
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => navigate("/manager/equipment")}
-              className="gap-1.5"
-            >
-              <ArrowLeft className="size-4" />
-              Back
-            </Button>
-          }
+          actions={backAction}
         />
         <CardSkeleton />
         <CardSkeleton />
@@ -303,10 +304,19 @@ export default function EquipmentFormPage() {
   // ---------------------------------------------------------------------
   // Handlers
   // ---------------------------------------------------------------------
-  const update = (key: keyof FormState, value: string) => {
-    setForm((f) => ({ ...f, [key]: value }));
+  const update = <K extends keyof FormState>(key: K, value: FormState[K]) => {
+    setForm((f) => {
+      // Changing the institution invalidates the cascading department.
+      if (key === "institutionId") {
+        return {
+          ...f,
+          institutionId: value as number | null,
+          departmentId: null,
+        };
+      }
+      return { ...f, [key]: value };
+    });
     if (submitted) {
-      // Re-validate on the fly after the first submit attempt.
       setErrors(validate({ ...form, [key]: value }));
     }
   };
@@ -323,7 +333,8 @@ export default function EquipmentFormPage() {
       equipmentName: form.equipmentName.trim(),
       category: form.category.trim(),
       description: form.description.trim(),
-      institution: form.institution.trim(),
+      institutionId: form.institutionId,
+      departmentId: form.departmentId,
     };
 
     setSaving(true);
@@ -331,11 +342,16 @@ export default function EquipmentFormPage() {
       if (isEdit) {
         await equipmentApi.updateEquipment(editId, payload);
         toast.success("Equipment updated");
+        navigate("/manager/equipment", { replace: true });
       } else {
-        await equipmentApi.addEquipment(payload);
+        const created = await equipmentApi.addEquipment(payload);
         toast.success("Equipment added");
+        if (created?.id) {
+          navigate(`/equipment/${created.id}`, { replace: true });
+        } else {
+          navigate("/manager/equipment", { replace: true });
+        }
       }
-      navigate("/manager/equipment", { replace: true });
     } catch (err: unknown) {
       const msg =
         err && typeof err === "object" && "message" in err
@@ -351,6 +367,9 @@ export default function EquipmentFormPage() {
 
   const inputClass =
     "h-11 w-full rounded-xl border-border/60 bg-background text-sm shadow-xs transition-[box-shadow,border-color] focus-visible:ring-2 focus-visible:ring-ring/50";
+
+  const institutionSelected = form.institutionId != null;
+  const departments = departmentsAsync.data ?? [];
 
   return (
     <div className="flex flex-col gap-6">
@@ -436,17 +455,68 @@ export default function EquipmentFormPage() {
               label="Institution"
               icon={Building2}
               required
-              error={submitted ? errors.institution : undefined}
+              error={submitted ? errors.institutionId : undefined}
             >
-              <Input
-                id="institution"
-                value={form.institution}
-                onChange={(e) => update("institution", e.target.value)}
-                placeholder="e.g. MIT Labs"
-                className={inputClass}
-                aria-invalid={!!(submitted && errors.institution)}
-                autoComplete="off"
-              />
+              <Select
+                value={
+                  institutionSelected ? String(form.institutionId) : undefined
+                }
+                onValueChange={(v) => update("institutionId", Number(v))}
+              >
+                <SelectTrigger
+                  className="h-11 w-full rounded-xl"
+                  aria-label="Select institution"
+                >
+                  <SelectValue placeholder="Select institution" />
+                </SelectTrigger>
+                <SelectContent>
+                  {(institutionsAsync.data ?? []).map((i) => (
+                    <SelectItem key={i.id} value={String(i.id)}>
+                      {i.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </Field>
+
+            <Field
+              id="department"
+              label="Department"
+              icon={Network}
+              error={undefined}
+            >
+              <Select
+                value={
+                  form.departmentId != null
+                    ? String(form.departmentId)
+                    : NO_DEPT
+                }
+                onValueChange={(v) =>
+                  update("departmentId", v === NO_DEPT ? null : Number(v))
+                }
+                disabled={!institutionSelected}
+              >
+                <SelectTrigger
+                  className="h-11 w-full rounded-xl"
+                  aria-label="Select department"
+                >
+                  <SelectValue
+                    placeholder={
+                      institutionSelected
+                        ? "No department"
+                        : "Select institution first"
+                    }
+                  />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={NO_DEPT}>No department</SelectItem>
+                  {departments.map((d) => (
+                    <SelectItem key={d.id} value={String(d.id)}>
+                      {d.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </Field>
           </div>
 

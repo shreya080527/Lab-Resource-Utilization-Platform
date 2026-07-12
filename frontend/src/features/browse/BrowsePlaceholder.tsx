@@ -27,7 +27,7 @@ import { Button } from "@/components/ui/button";
 // ---------------------------------------------------------------------------
 
 const PREVIEW_CARDS: {
-  icon: React.ComponentType<{ className?: string }>;
+  icon: React.ComponentType<{ className?: string; strokeWidth?: number }>;
   label: string;
   hint: string;
 }[] = [

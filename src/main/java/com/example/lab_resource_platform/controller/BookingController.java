@@ -25,12 +25,18 @@ public class BookingController {
 
     @PostMapping("/create")
     @PreAuthorize("hasRole('RESEARCHER')")
-    public ResponseEntity<BookingResponse> create(@RequestBody Map<String, Object> body) {
+    public ResponseEntity<?> create(@RequestBody Map<String, Object> body) {
         Long userId = Long.valueOf(body.get("userId").toString());
         Long equipmentId = Long.valueOf(body.get("equipmentId").toString());
         LocalDateTime start = LocalDateTime.parse(body.get("startTime").toString());
         LocalDateTime end = LocalDateTime.parse(body.get("endTime").toString());
         Booking b = bookingService.createBooking(userId, equipmentId, start, end);
+
+        if (b == null) {
+            // Waitlist case — the waitlist entry was saved successfully
+            return ResponseEntity.ok("Slot conflicting with an active timeline. Auto-added to the Waitlist.");
+        }
+
         return ResponseEntity.status(HttpStatus.CREATED).body(BookingResponse.from(b));
     }
 
@@ -115,5 +121,11 @@ public class BookingController {
     public ResponseEntity<List<BookingResponse>> all() {
         return ResponseEntity.ok(bookingService.findAll()
                 .stream().map(BookingResponse::from).toList());
+    }
+
+    @GetMapping("/my-dashboard/{userId}")
+    @PreAuthorize("hasRole('RESEARCHER')")
+    public ResponseEntity<ResearcherDashboardDto> myDashboard(@PathVariable Long userId) {
+        return ResponseEntity.ok(bookingService.getResearcherDashboard(userId));
     }
 }

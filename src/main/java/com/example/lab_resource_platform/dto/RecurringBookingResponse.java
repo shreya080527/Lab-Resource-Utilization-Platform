@@ -1,7 +1,6 @@
 package com.example.lab_resource_platform.dto;
 
 
-import com.example.lab_resource_platform.entity.Bookings.Booking;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -13,7 +12,7 @@ public class RecurringBookingResponse {
     private Long parentBookingId;
     private int totalBookingsCreated;
     private int totalWaitlisted;
-    private List<Booking> bookings;
+    private List<BookingResponse> bookings;
     private List<WaitlistSlot> waitlistedSlots;
 
     @Data @AllArgsConstructor

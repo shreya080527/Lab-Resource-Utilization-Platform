@@ -36,14 +36,16 @@ api.interceptors.response.use(
   (response: AxiosResponse) => response,
   (error: AxiosError) => {
     const status = error.response?.status;
-    const method = (error.config?.method || "get").toLowerCase();
 
     if (status === 401) {
-      // Only auto-logout on GET requests (data fetches). For mutations
-      // (PUT/POST/DELETE), a 401 might be a transient backend issue (e.g.,
-      // the start endpoint's @PreAuthorize failing due to a role check) —
-      // show an error toast instead of logging the user out.
-      if (method === "get" || method === "delete") {
+      // Only auto-logout when the session-check endpoint (get-user-details)
+      // returns 401 — that genuinely means the token is expired/invalid.
+      // For ALL other endpoints, a 401/403 might be a @PreAuthorize role
+      // issue or a non-existent endpoint returning 401-via-CORS — we must
+      // NOT kick the user out of their session in those cases.
+      const url = error.config?.url || "";
+      const isSessionCheck = url.includes("/api/auth/get-user-details");
+      if (isSessionCheck) {
         if (typeof window !== "undefined") {
           window.localStorage.removeItem(TOKEN_KEY);
           unauthorizedHandler?.();
@@ -51,9 +53,12 @@ api.interceptors.response.use(
       }
     }
 
-    // Normalize the error shape so callers always get a friendly message
+    // Normalize the error shape so callers always get a friendly message.
+    // The upgraded backend's GlobalExceptionHandler returns:
+    //   { timestamp, status, error, message }  OR  { timestamp, status, error, fieldErrors }
     const data = error.response?.data;
     let message: string;
+    let fieldErrors: Record<string, string> | undefined;
     if (typeof data === "string" && data.trim()) {
       message = data.trim();
     } else if (data && typeof data === "object") {
@@ -63,6 +68,9 @@ api.interceptors.response.use(
         (typeof obj.error === "string" && obj.error) ||
         error.message ||
         "Something went wrong";
+      if (obj.fieldErrors && typeof obj.fieldErrors === "object") {
+        fieldErrors = obj.fieldErrors as Record<string, string>;
+      }
     } else {
       message = error.message || "Network error";
     }
@@ -70,6 +78,7 @@ api.interceptors.response.use(
     return Promise.reject({
       status,
       message,
+      fieldErrors,
       raw: error,
     });
   },

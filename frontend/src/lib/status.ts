@@ -7,14 +7,12 @@ import type {
 } from "@/types";
 
 // ---------------------------------------------------------------------------
-// Status visual config — muted, distinct, consistent across the whole app.
+// Status visual config
 // ---------------------------------------------------------------------------
 
 export interface StatusConfig {
   label: string;
-  /** tailwind classes for a chip */
   chip: string;
-  /** hex/oklch used in charts/calendar */
   dot: string;
   color: string;
 }
@@ -56,12 +54,6 @@ export const BOOKING_STATUS_CONFIG: Record<BookingStatus, StatusConfig> = {
     dot: "bg-rose-500",
     color: "#f43f5e",
   },
-  WAITLIST: {
-    label: "Waitlist",
-    chip: "bg-orange-500/12 text-orange-700 dark:text-orange-300 ring-1 ring-orange-500/25",
-    dot: "bg-orange-500",
-    color: "#f97316",
-  },
   NO_SHOW: {
     label: "No Show",
     chip: "bg-purple-500/12 text-purple-700 dark:text-purple-300 ring-1 ring-purple-500/25",
@@ -73,7 +65,6 @@ export const BOOKING_STATUS_CONFIG: Record<BookingStatus, StatusConfig> = {
 export function bookingStatusConfig(status: string): StatusConfig {
   const known = BOOKING_STATUS_CONFIG[status as BookingStatus];
   if (known) return known;
-  // Defensive: unknown status → neutral gray, never a crash
   return {
     label: status ? toTitle(status) : "Unknown",
     chip: "bg-zinc-500/12 text-zinc-600 dark:text-zinc-300 ring-1 ring-zinc-500/25",
@@ -115,7 +106,7 @@ export const EQUIPMENT_STATUS_CONFIG: Record<string, StatusConfig> = {
   },
 };
 
-export function equipmentStatusConfig(status: EquipmentStatus): StatusConfig {
+export function equipmentStatusConfig(status: EquipmentStatus | string): StatusConfig {
   const known = EQUIPMENT_STATUS_CONFIG[status];
   if (known) return known;
   return {
@@ -134,13 +125,7 @@ function toTitle(s: string): string {
 }
 
 // ---------------------------------------------------------------------------
-// Booking lifecycle — single source of truth (spec §6)
-//
-// PENDING ──► CONFIRMED ──► IN_PROGRESS ──► COMPLETED
-//    │             │
-//    ├──► REJECTED └──► CANCELLED
-//    └──► CANCELLED
-// WAITLIST ──► (auto-promoted) ──► PENDING
+// Booking lifecycle — single source of truth
 // ---------------------------------------------------------------------------
 
 export function getAvailableActions(
@@ -149,7 +134,7 @@ export function getAvailableActions(
 ): BookingAction[] {
   if (!currentUser) return [];
   const status = booking.status as BookingStatus;
-  const isOwner = booking.user.id === currentUser.id;
+  const isOwner = booking.userId === currentUser.id;
   const isManager = currentUser.role === "LAB_MANAGER";
   const isResearcher = currentUser.role === "RESEARCHER";
   const actions: BookingAction[] = [];
@@ -158,27 +143,28 @@ export function getAvailableActions(
     case "PENDING":
       if (isManager) {
         actions.push("accept", "reject");
-        actions.push("cancel"); // manager can cancel any
+        actions.push("cancel");
       }
       if (isOwner && isResearcher) actions.push("cancel");
       break;
     case "CONFIRMED":
-      if (isOwner && isResearcher) actions.push("start");
-      if (isManager) actions.push("cancel");
-      if (isOwner && isResearcher) actions.push("cancel");
+      if (isManager) {
+        actions.push("noShow");
+        actions.push("cancel");
+      }
+      if (isOwner && isResearcher) actions.push("start", "cancel");
       break;
     case "IN_PROGRESS":
       if (isOwner && isResearcher) actions.push("complete");
       if (isManager) actions.push("complete");
       break;
-    case "WAITLIST":
+    case "NO_SHOW":
     case "COMPLETED":
     case "CANCELLED":
     case "REJECTED":
     default:
       break;
   }
-  // de-dup while preserving order
   return Array.from(new Set(actions));
 }
 
@@ -188,6 +174,7 @@ export const ACTION_LABELS: Record<BookingAction, string> = {
   start: "Start",
   cancel: "Cancel",
   complete: "Complete",
+  noShow: "Mark No-Show",
 };
 
 export const ACTION_VARIANTS: Record<
@@ -199,9 +186,9 @@ export const ACTION_VARIANTS: Record<
   start: "default",
   cancel: "outline",
   complete: "default",
+  noShow: "destructive",
 };
 
-/** Whether an equipment can be booked right now */
 export function isBookable(status: EquipmentStatus): boolean {
   return status === "AVAILABLE";
 }
@@ -212,4 +199,5 @@ export const ACTION_SUCCESS: Record<BookingAction, string> = {
   start: "Booking started",
   cancel: "Booking cancelled",
   complete: "Booking completed",
+  noShow: "Booking marked as no-show",
 };

@@ -1,9 +1,10 @@
 
 import * as React from "react";
-import { CalendarClock, Clock, User, Microscope, X } from "lucide-react";
+import { CalendarClock, Clock, User, Microscope, X, Repeat, Link2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { ActionButtonGroup } from "@/components/shared/ActionButtonGroup";
 import type { Booking, User as AppUser } from "@/types";
@@ -27,6 +28,8 @@ export function BookingCard({
   const start = parseISO(booking.startTime);
   const end = parseISO(booking.endTime);
   const sameDay = format(start, "yyyy-MM-dd") === format(end, "yyyy-MM-dd");
+  const isRecurring = !!booking.recurrencePattern;
+  const isPartOfSeries = booking.parentBookingId != null;
 
   return (
     <Card
@@ -38,18 +41,37 @@ export function BookingCard({
       <div className="flex items-start justify-between gap-3">
         <button
           className="flex min-w-0 items-center gap-3 text-left"
-          onClick={() => onViewEquipment?.(booking.equipment.id)}
+          onClick={() => onViewEquipment?.(booking.equipmentId)}
         >
           <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-primary/15 to-primary/5 text-primary ring-1 ring-primary/10">
             <Microscope className="size-4" />
           </div>
           <div className="min-w-0">
             <p className="truncate text-sm font-semibold text-foreground">
-              {booking.equipment.equipmentName}
+              {booking.equipmentName}
             </p>
-            <p className="truncate text-xs text-muted-foreground">
-              {booking.equipment.category} · S/N {booking.equipment.serial}
-            </p>
+            <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+              {isRecurring && (
+                <Badge
+                  variant="secondary"
+                  className="rounded-full px-1.5 py-0 text-[10px] font-medium gap-0.5"
+                  title={`Recurring: ${booking.recurrencePattern}`}
+                >
+                  <Repeat className="size-2.5" />
+                  {booking.recurrencePattern}
+                </Badge>
+              )}
+              {isPartOfSeries && (
+                <Badge
+                  variant="outline"
+                  className="rounded-full px-1.5 py-0 text-[10px] font-medium gap-0.5 text-muted-foreground"
+                  title={`Part of recurring series #${booking.parentBookingId}`}
+                >
+                  <Link2 className="size-2.5" />
+                  Part of series #{booking.parentBookingId}
+                </Badge>
+              )}
+            </div>
           </div>
         </button>
         <StatusBadge status={booking.status} />
@@ -71,13 +93,7 @@ export function BookingCard({
         {showUser && (
           <div className="flex items-center gap-2 text-muted-foreground sm:col-span-2">
             <User className="size-4 shrink-0 text-primary/70" />
-            <span className="text-foreground">
-              {booking.user.username}
-              <span className="text-muted-foreground">
-                {" · "}
-                {booking.user.department} · {booking.user.institution}
-              </span>
-            </span>
+            <span className="text-foreground truncate">{booking.username}</span>
           </div>
         )}
       </div>

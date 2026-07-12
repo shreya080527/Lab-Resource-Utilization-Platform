@@ -1,7 +1,7 @@
 /// <reference types="vite/client" />
 
 interface ImportMetaEnv {
-  /** Base URL for the backend API. Empty string → use the in-memory mock backend. */
+  /** Base URL for the backend API. */
   readonly VITE_API_BASE_URL?: string;
 }
 

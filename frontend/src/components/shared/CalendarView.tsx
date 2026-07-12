@@ -1,7 +1,6 @@
 
 import * as React from "react";
 import {
-  addDays,
   startOfWeek,
   endOfWeek,
   eachDayOfInterval,
@@ -36,12 +35,26 @@ export function CalendarView({
   events,
   onSelect,
   emptyHint,
+  cursor: controlledCursor,
+  onCursorChange,
 }: {
   events: CalendarEventItem[];
   onSelect?: (ev: CalendarEventItem) => void;
   emptyHint?: string;
+  /** Optional controlled cursor — when omitted, CalendarView manages its own. */
+  cursor?: Date;
+  /** Notified whenever the user navigates weeks (prev/next/today). */
+  onCursorChange?: (next: Date) => void;
 }) {
-  const [cursor, setCursor] = React.useState(new Date());
+  const [internalCursor, setInternalCursor] = React.useState(new Date());
+  const cursor = controlledCursor ?? internalCursor;
+  const setCursor = React.useCallback(
+    (next: Date) => {
+      if (controlledCursor === undefined) setInternalCursor(next);
+      onCursorChange?.(next);
+    },
+    [controlledCursor, onCursorChange],
+  );
   const weekStart = startOfWeek(cursor, { weekStartsOn: 1 });
   const weekEnd = endOfWeek(cursor, { weekStartsOn: 1 });
   const days = eachDayOfInterval({ start: weekStart, end: weekEnd });
@@ -70,7 +83,7 @@ export function CalendarView({
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => setCursor((c) => addWeeks(c, -1))}
+            onClick={() => setCursor(addWeeks(cursor, -1))}
             className="rounded-lg"
             aria-label="Previous week"
           >
@@ -87,7 +100,7 @@ export function CalendarView({
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => setCursor((c) => addWeeks(c, 1))}
+            onClick={() => setCursor(addWeeks(cursor, 1))}
             className="rounded-lg"
             aria-label="Next week"
           >

@@ -1,48 +1,76 @@
 import * as React from "react";
+import { useState } from "react";
 import {
-  BarChart3,
-  RefreshCw,
-  Gauge,
-  Sparkles,
-  CalendarRange,
+  Activity,
   AlertCircle,
+  BarChart3,
   Building2,
-  Grid3x3,
+  CalendarRange,
   Clock,
+  Download,
+  Gauge,
+  Grid3x3,
+  Layers,
+  PieChart as PieChartIcon,
+  Minus,
+  Radio,
+  RefreshCw,
+  Sparkles,
+  TrendingDown,
+  TrendingUp,
+  Users,
 } from "lucide-react";
 import { toast } from "sonner";
-import {
-  addDays,
-  endOfDay,
-  format,
-  parseISO,
-  startOfDay,
-} from "date-fns";
 import {
   Bar,
   BarChart,
   CartesianGrid,
   Cell,
+  Legend,
+  Line,
+  LineChart,
+  Pie,
+  PieChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
 } from "recharts";
+import {
+  endOfDay,
+  format,
+  parseISO,
+  startOfDay,
+  subDays,
+} from "date-fns";
 
 import { cn } from "@/lib/utils";
 import { useAsync } from "@/hooks/use-async";
 import { bookingApi } from "@/lib/api/bookingApi";
-import { equipmentApi } from "@/lib/api/equipmentApi";
+import { toBackendDateTime } from "@/lib/constants";
+import {
+  departmentApi,
+  equipmentApi,
+  institutionApi,
+} from "@/lib/api/equipmentApi";
 
 import { PageHeader } from "@/components/shared/PageHeader";
 import { EmptyState } from "@/components/shared/EmptyState";
-import { ListSkeleton } from "@/components/shared/Skeletons";
+import { CardSkeleton, ListSkeleton } from "@/components/shared/Skeletons";
 import { UtilizationGauge } from "@/components/shared/UtilizationGauge";
+import { StatusBadge } from "@/components/shared/StatusBadge";
 
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   Select,
   SelectContent,
@@ -50,145 +78,363 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
-import type { Booking, Equipment, UtilizationReport } from "@/types";
+import type {
+  BenchmarkReport,
+  Department,
+  Equipment,
+  HeatmapReport,
+  IdleEquipmentRow,
+  IdleReport,
+  Institution,
+  PeakReport,
+  RealtimeUsage,
+  ScopeUtilizationReport,
+  SharedVsExclusiveReport,
+  UtilizationReport,
+} from "@/types";
 
 // ---------------------------------------------------------------------------
-// The real backend ONLY has: GET /api/bookings/utilization?equipmentId=&start=&end=
-// (per-equipment, LAB_MANAGER). There are NO department/institution/heatmap/idle
-// endpoints. We compute ALL of those client-side from:
-//   1. equipmentApi.getAllEquipment() — for department/institution grouping
-//   2. bookingApi.utilization(...) per equipment — for booked/available hours
-//   3. bookingApi.allBookings() — for the heatmap (day-of-week × hour-of-day)
+// Constants & helpers
 // ---------------------------------------------------------------------------
 
-const BAR_COLOR = "var(--primary)";
-const BAR_COLOR_HEX = "#3b82f6";
-const EQUIP_ALL = "ALL";
+const PRIMARY = "var(--primary)";
 
-function todayStr(): string {
+// Mon=0 … Sun=6, matching the displayed heatmap row order. Backend may send
+// "MONDAY"/"Monday"/"Mon" — we normalise by first 3 chars uppercased.
+const DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+const DAY_INDEX: Record<string, number> = {
+  MON: 0,
+  TUE: 1,
+  WED: 2,
+  THU: 3,
+  FRI: 4,
+  SAT: 5,
+  SUN: 6,
+};
+
+const SHARED_COLOR = "var(--primary)";
+const EXCLUSIVE_COLOR = "#f59e0b";
+
+function defaultStart(): string {
+  return format(subDays(new Date(), 30), "yyyy-MM-dd");
+}
+function defaultEnd(): string {
   return format(new Date(), "yyyy-MM-dd");
 }
-function plusDaysStr(days: number): string {
-  return format(addDays(new Date(), days), "yyyy-MM-dd");
+function toISOStart(dateStr: string): string {
+  return toBackendDateTime(startOfDay(parseISO(dateStr)));
 }
-
-function errMsg(e: unknown): string {
-  if (e && typeof e === "object" && "message" in e) {
-    return String((e as { message?: unknown }).message);
-  }
-  return "Something went wrong";
+function toISOEnd(dateStr: string): string {
+  return toBackendDateTime(endOfDay(parseISO(dateStr)));
 }
-
-function truncate(name: string, n = 14): string {
-  if (name.length <= n) return name;
-  return name.slice(0, n - 1) + "…";
-}
-
-function fmtPct(p: number): string {
-  return p.toFixed(p % 1 === 0 ? 0 : 1);
-}
-
-/** Format hours to at most 4 decimal places (trailing zeros trimmed). */
 function fmtHours(h: number): string {
   const rounded = Math.round(h * 10000) / 10000;
-  return Number.isInteger(rounded) ? String(rounded) : String(rounded);
+  return String(rounded);
+}
+function fmtPct(p: number): string {
+  if (!Number.isFinite(p)) return "—";
+  return p.toFixed(p % 1 === 0 ? 0 : 1);
+}
+function fmtDateTime(iso: string): string {
+  try {
+    return format(parseISO(iso), "MMM d, HH:mm");
+  } catch {
+    return iso;
+  }
+}
+function fmtTime(iso: string): string {
+  try {
+    return format(parseISO(iso), "HH:mm");
+  } catch {
+    return iso;
+  }
+}
+function isDateRangeInvalid(start: string, end: string): boolean {
+  return (
+    !!start && !!end && parseISO(end).getTime() < parseISO(start).getTime()
+  );
+}
+function dayIdx(dayOfWeek: string): number {
+  const key = (dayOfWeek || "").toUpperCase().slice(0, 3);
+  return DAY_INDEX[key] ?? -1;
 }
 
-function isDateInvalid(start: string, end: string): boolean {
-  return !!start && !!end && parseISO(end).getTime() < parseISO(start).getTime();
-}
-
-/** Convert "yyyy-MM-dd" start/end to ISO strings for the API */
-function isoRange(start: string, end: string) {
-  return {
-    startIso: startOfDay(parseISO(start)).toISOString(),
-    endIso: endOfDay(parseISO(end)).toISOString(),
-  };
-}
-
-function distinct(list: (string | undefined | null)[]): string[] {
-  return Array.from(new Set(list.filter((x): x is string => !!x))).sort();
-}
+const CHART_TOOLTIP_STYLE = {
+  background: "var(--popover)",
+  color: "var(--popover-foreground)",
+  border: "1px solid var(--border)",
+  borderRadius: 8,
+  fontSize: 12,
+} as const;
 
 // ---------------------------------------------------------------------------
-// Shared UI helpers
+// Shared UI bits
 // ---------------------------------------------------------------------------
 
 function StatTile({
   label,
   value,
   hint,
+  icon: Icon,
   accent,
 }: {
   label: string;
-  value: string;
+  value: React.ReactNode;
   hint?: string;
+  icon?: React.ComponentType<{ className?: string }>;
   accent?: string;
 }) {
   return (
-    <div className="rounded-2xl border border-border/60 bg-card p-4 shadow-soft">
-      <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-        {label}
-      </p>
-      <p className={cn("mt-2 text-2xl font-semibold tracking-tight", accent ?? "text-foreground")}>
-        {value}
-      </p>
-      {hint && <p className="mt-1 text-xs text-muted-foreground">{hint}</p>}
-    </div>
+    <Card className="rounded-2xl border-border/60 p-5 shadow-soft">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            {label}
+          </p>
+          <p
+            className={cn(
+              "mt-2 text-2xl font-semibold tracking-tight",
+              accent ?? "text-foreground",
+            )}
+          >
+            {value}
+          </p>
+          {hint && <p className="mt-1 text-xs text-muted-foreground">{hint}</p>}
+        </div>
+        {Icon && (
+          <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+            <Icon className="size-5" />
+          </div>
+        )}
+      </div>
+    </Card>
   );
 }
 
-function GenerateButton({
-  loading,
-  invalid,
-  onClick,
+function ErrorCard({
+  message,
+  onRetry,
 }: {
-  loading: boolean;
-  invalid: boolean;
-  onClick: () => void;
+  message: string;
+  onRetry: () => void;
 }) {
   return (
-    <Button onClick={onClick} disabled={loading || invalid} className="w-full gap-1.5">
-      {loading ? (
-        <span className="size-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
-      ) : (
-        <Sparkles className="size-4" />
-      )}
-      {loading ? "Generating…" : "Generate"}
-    </Button>
+    <Card className="rounded-2xl border-border/60 p-6 shadow-soft">
+      <div className="flex flex-col items-center gap-4 text-center sm:flex-row sm:text-left">
+        <div className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-destructive/10 text-destructive">
+          <AlertCircle className="size-5" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="font-semibold text-foreground">
+            Couldn&apos;t generate the report.
+          </p>
+          <p className="break-words text-sm text-muted-foreground">{message}</p>
+        </div>
+        <Button variant="outline" size="sm" onClick={onRetry} className="gap-1.5">
+          <RefreshCw className="size-4" /> Retry
+        </Button>
+      </div>
+    </Card>
   );
 }
 
-function DateInvalidHint({ show }: { show: boolean }) {
-  if (!show) return null;
+interface DateRangeBarProps {
+  start: string;
+  end: string;
+  onStartChange: (v: string) => void;
+  onEndChange: (v: string) => void;
+  onGenerate: () => void;
+  loading?: boolean;
+  extra?: React.ReactNode;
+}
+
+function DateRangeBar({
+  start,
+  end,
+  onStartChange,
+  onEndChange,
+  onGenerate,
+  loading,
+  extra,
+}: DateRangeBarProps) {
+  const invalid = isDateRangeInvalid(start, end);
   return (
-    <p className="mt-3 flex items-center gap-1.5 text-xs text-destructive">
-      <AlertCircle className="size-3.5" />
-      End date must be on or after the start date.
-    </p>
+    <Card className="rounded-2xl border-border/60 p-4 shadow-soft sm:p-5">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:flex-wrap">
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-muted-foreground">
+              Start date
+            </label>
+            <Input
+              type="date"
+              value={start}
+              onChange={(e) => onStartChange(e.target.value)}
+              className="w-full sm:w-44"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-muted-foreground">
+              End date
+            </label>
+            <Input
+              type="date"
+              value={end}
+              onChange={(e) => onEndChange(e.target.value)}
+              className="w-full sm:w-44"
+            />
+          </div>
+          {extra}
+        </div>
+        <div className="flex flex-col items-start gap-1.5 sm:items-end">
+          <Button
+            onClick={onGenerate}
+            disabled={loading || invalid}
+            className="gap-1.5"
+          >
+            {loading ? (
+              <span className="size-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+            ) : (
+              <Sparkles className="size-4" />
+            )}
+            {loading ? "Generating…" : "Generate"}
+          </Button>
+          {invalid && (
+            <p className="text-xs text-destructive">
+              End date must be on or after start date.
+            </p>
+          )}
+        </div>
+      </div>
+    </Card>
   );
 }
 
-function RangeFooter({ start, end }: { start: string; end: string }) {
+function SectionLabel({
+  icon: Icon,
+  children,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  children: React.ReactNode;
+}) {
   return (
-    <div className="mt-3 flex items-center gap-1.5 border-t border-border/40 pt-3 text-xs text-muted-foreground">
-      <CalendarRange className="size-3.5" />
-      Range: {start} → {end}
+    <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+      <Icon className="size-4 text-muted-foreground" />
+      {children}
     </div>
   );
 }
 
-function ErrorPanel({ message, onRetry }: { message: string; onRetry: () => void }) {
+function UtilizationPill({ pct }: { pct: number }) {
+  const clamped = Math.max(0, Math.min(100, pct));
+  const tone =
+    clamped >= 80 ? "#f43f5e" : clamped >= 50 ? "#f59e0b" : "var(--primary)";
   return (
-    <div className="flex flex-col items-center gap-3 rounded-2xl border border-dashed border-border/70 bg-muted/30 px-6 py-12 text-center">
-      <p className="text-sm font-medium text-foreground">Couldn't generate the report.</p>
-      <p className="max-w-sm text-sm text-muted-foreground">{message}</p>
-      <Button variant="outline" size="sm" onClick={onRetry} className="gap-1.5">
-        <RefreshCw className="size-3.5" />
-        Retry
-      </Button>
-    </div>
+    <span
+      className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium tabular-nums"
+      style={{
+        backgroundColor: `color-mix(in oklch, ${tone} 14%, transparent)`,
+        color: tone,
+      }}
+    >
+      {fmtPct(clamped)}%
+    </span>
+  );
+}
+
+/** Inline equipment + date-range selector, shared by Equipment and Heatmap tabs. */
+function EquipmentRangeBar({
+  equipment,
+  equipmentId,
+  onEquipmentChange,
+  start,
+  end,
+  onStartChange,
+  onEndChange,
+  onGenerate,
+  loading,
+}: {
+  equipment: Equipment[];
+  equipmentId: number | null;
+  onEquipmentChange: (id: number) => void;
+  start: string;
+  end: string;
+  onStartChange: (v: string) => void;
+  onEndChange: (v: string) => void;
+  onGenerate: () => void;
+  loading: boolean;
+}) {
+  return (
+    <Card className="rounded-2xl border-border/60 p-4 shadow-soft sm:p-5">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:flex-wrap">
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-muted-foreground">
+              Equipment
+            </label>
+            <Select
+              value={String(equipmentId ?? "")}
+              onValueChange={(v) => onEquipmentChange(Number(v))}
+            >
+              <SelectTrigger className="w-full sm:w-72">
+                <SelectValue placeholder="Select equipment" />
+              </SelectTrigger>
+              <SelectContent>
+                {equipment.map((e) => (
+                  <SelectItem key={e.id} value={String(e.id)}>
+                    {e.equipmentName} · {e.serial}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-muted-foreground">
+              Start date
+            </label>
+            <Input
+              type="date"
+              value={start}
+              onChange={(e) => onStartChange(e.target.value)}
+              className="w-full sm:w-44"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-muted-foreground">
+              End date
+            </label>
+            <Input
+              type="date"
+              value={end}
+              onChange={(e) => onEndChange(e.target.value)}
+              className="w-full sm:w-44"
+            />
+          </div>
+        </div>
+        <Button
+          onClick={onGenerate}
+          disabled={loading || equipmentId == null}
+          className="gap-1.5"
+        >
+          {loading ? (
+            <span className="size-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+          ) : (
+            <Sparkles className="size-4" />
+          )}
+          {loading ? "Generating…" : "Generate"}
+        </Button>
+      </div>
+    </Card>
   );
 }
 
@@ -197,831 +443,1510 @@ function ErrorPanel({ message, onRetry }: { message: string; onRetry: () => void
 // ---------------------------------------------------------------------------
 
 export default function UtilizationPage() {
-  const { data: equipment, loading: equipLoading, error: equipError, refetch: refetchEquip } =
-    useAsync(() => equipmentApi.getAllEquipment(), []);
-
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
-        title="Utilization"
-        description="Booked vs. available hours — see how hard your equipment is working."
-        actions={
-          (equipment?.length ?? 0) > 0 ? (
-            <Button variant="outline" size="sm" onClick={refetchEquip} className="gap-1.5">
-              <RefreshCw className="size-3.5" />
-              Refresh list
-            </Button>
-          ) : undefined
-        }
+        title="Utilization Analytics"
+        description="Track booked vs. available hours across equipment, scope, and time — driven by backend analytics endpoints."
       />
+      <Tabs defaultValue="equipment" className="gap-4">
+        <TabsList className="h-auto w-full flex-wrap justify-start gap-1 py-1 sm:w-auto">
+          <TabsTrigger value="equipment" className="gap-1.5">
+            <Gauge className="size-3.5" /> Equipment
+          </TabsTrigger>
+          <TabsTrigger value="department" className="gap-1.5">
+            <Building2 className="size-3.5" /> Department
+          </TabsTrigger>
+          <TabsTrigger value="institution" className="gap-1.5">
+            <Layers className="size-3.5" /> Institution
+          </TabsTrigger>
+          <TabsTrigger value="heatmap" className="gap-1.5">
+            <Grid3x3 className="size-3.5" /> Heatmap
+          </TabsTrigger>
+          <TabsTrigger value="idle" className="gap-1.5">
+            <Clock className="size-3.5" /> Idle Time
+          </TabsTrigger>
+          <TabsTrigger value="peak" className="gap-1.5">
+            <BarChart3 className="size-3.5" /> Peak Patterns
+          </TabsTrigger>
+          <TabsTrigger value="shared" className="gap-1.5">
+            <PieChartIcon className="size-3.5" /> Shared vs Exclusive
+          </TabsTrigger>
+          <TabsTrigger value="realtime" className="gap-1.5">
+            <Radio className="size-3.5" /> Real-Time
+          </TabsTrigger>
+        </TabsList>
 
+        <TabsContent value="equipment">
+          <EquipmentTab />
+        </TabsContent>
+        <TabsContent value="department">
+          <ScopeTab kind="department" />
+        </TabsContent>
+        <TabsContent value="institution">
+          <ScopeTab kind="institution" />
+        </TabsContent>
+        <TabsContent value="heatmap">
+          <HeatmapTab />
+        </TabsContent>
+        <TabsContent value="idle">
+          <IdleTimeTab />
+        </TabsContent>
+        <TabsContent value="peak">
+          <PeakTab />
+        </TabsContent>
+        <TabsContent value="shared">
+          <SharedVsExclusiveTab />
+        </TabsContent>
+        <TabsContent value="realtime">
+          <RealtimeTab />
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// 1. EQUIPMENT TAB — bookingApi.utilization({equipmentId,start,end}) + benchmark
+// ---------------------------------------------------------------------------
+
+interface EquipParams {
+  equipmentId: number;
+  start: string;
+  end: string;
+}
+
+function EquipmentTab() {
+  const {
+    data: equipment,
+    loading: equipLoading,
+    error: equipError,
+    refetch: refetchEquip,
+  } = useAsync<Equipment[]>(() => equipmentApi.getAllEquipment(), []);
+
+  const [start, setStart] = useState(defaultStart());
+  const [end, setEnd] = useState(defaultEnd());
+  const [equipmentId, setEquipmentId] = useState<number | null>(null);
+  const [params, setParams] = useState<EquipParams | null>(null);
+  const [benchParams, setBenchParams] = useState<EquipParams | null>(null);
+
+  const {
+    data: report,
+    loading,
+    error,
+    refetch,
+  } = useAsync<UtilizationReport | undefined>(
+    () =>
+      params
+        ? bookingApi.utilization(params)
+        : Promise.resolve(undefined),
+    [params],
+  );
+
+  const {
+    data: benchmark,
+    loading: benchLoading,
+    error: benchError,
+    refetch: refetchBench,
+  } = useAsync<BenchmarkReport | undefined>(
+    () =>
+      benchParams
+        ? bookingApi.benchmark(
+            benchParams.equipmentId,
+            benchParams.start,
+            benchParams.end,
+          )
+        : Promise.resolve(undefined),
+    [benchParams],
+  );
+
+  // Auto-pick the first equipment once the list loads.
+  React.useEffect(() => {
+    if (equipmentId === null && equipment && equipment.length > 0) {
+      setEquipmentId(equipment[0].id);
+    }
+  }, [equipment, equipmentId]);
+
+  function handleGenerate() {
+    if (equipmentId == null) {
+      toast.error("Select an equipment first.");
+      return;
+    }
+    setParams({
+      equipmentId,
+      start: toISOStart(start),
+      end: toISOEnd(end),
+    });
+  }
+
+  function openBenchmark() {
+    if (equipmentId == null) {
+      toast.error("Select an equipment first.");
+      return;
+    }
+    setBenchParams({
+      equipmentId,
+      start: toISOStart(start),
+      end: toISOEnd(end),
+    });
+  }
+
+  return (
+    <div className="flex flex-col gap-4">
       {equipLoading ? (
-        <ListSkeleton count={2} />
+        <ListSkeleton count={1} />
       ) : equipError ? (
-        <ErrorPanel message={equipError} onRetry={refetchEquip} />
+        <ErrorCard message={equipError} onRetry={refetchEquip} />
       ) : (equipment?.length ?? 0) === 0 ? (
         <EmptyState
           icon={Gauge}
-          title="No equipment to analyze"
-          description="Add equipment first, then come back here to measure its utilization."
+          title="No equipment available"
+          description="Add equipment first, then come back to analyze its utilization."
         />
       ) : (
-        <Tabs defaultValue="equipment">
-          <TabsList className="h-9 w-full overflow-x-auto no-scrollbar sm:w-auto">
-            <TabsTrigger value="equipment" className="gap-1.5">
-              <Gauge className="size-3.5" />
-              Equipment
-            </TabsTrigger>
-            <TabsTrigger value="department" className="gap-1.5">
-              <Building2 className="size-3.5" />
-              Department
-            </TabsTrigger>
-            <TabsTrigger value="institution" className="gap-1.5">
-              <Building2 className="size-3.5" />
-              Institution
-            </TabsTrigger>
-            <TabsTrigger value="heatmap" className="gap-1.5">
-              <Grid3x3 className="size-3.5" />
-              Heatmap
-            </TabsTrigger>
-            <TabsTrigger value="idle" className="gap-1.5">
-              <Clock className="size-3.5" />
-              Idle Time
-            </TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="equipment" className="mt-4">
-            <EquipmentTab equipment={equipment ?? []} />
-          </TabsContent>
-          <TabsContent value="department" className="mt-4">
-            <ScopeTab equipment={equipment ?? []} scope="DEPARTMENT" />
-          </TabsContent>
-          <TabsContent value="institution" className="mt-4">
-            <ScopeTab equipment={equipment ?? []} scope="INSTITUTION" />
-          </TabsContent>
-          <TabsContent value="heatmap" className="mt-4">
-            <HeatmapTab equipment={equipment ?? []} />
-          </TabsContent>
-          <TabsContent value="idle" className="mt-4">
-            <IdleTimeTab equipment={equipment ?? []} />
-          </TabsContent>
-        </Tabs>
-      )}
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Fetch helper: per-equipment utilization for ALL equipment (parallel)
-// ---------------------------------------------------------------------------
-
-async function fetchAllUtilization(
-  equipment: Equipment[],
-  startIso: string,
-  endIso: string,
-): Promise<UtilizationReport[]> {
-  const startMs = new Date(startIso).getTime();
-  const endMs = new Date(endIso).getTime();
-  const nowMs = Date.now();
-  return Promise.all(
-    equipment.map((e) => {
-      const acqMs = e.acquisitionDate ? new Date(e.acquisitionDate).getTime() : 0;
-      if (acqMs > startMs) {
-        // Equipment was added DURING the selected range (e.g., 1 hour ago).
-        // "Available hours" should only count ELAPSED time (from acquisition
-        // to now), not future capacity — otherwise a newly-added equipment
-        // shows 176h "available" for a 7-day range, which is misleading.
-        const effectiveStart = new Date(acqMs).toISOString();
-        const effectiveEnd = new Date(Math.min(endMs, nowMs)).toISOString();
-        return bookingApi.utilization({
-          equipmentId: e.id,
-          start: effectiveStart,
-          end: effectiveEnd,
-        });
-      }
-      // Equipment existed before the range — use the full selected range.
-      return bookingApi.utilization({
-        equipmentId: e.id,
-        start: startIso,
-        end: endIso,
-      });
-    }),
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Tab 1: Equipment (per-equipment + comparison chart)
-// ---------------------------------------------------------------------------
-
-interface ChartRow {
-  id: number;
-  name: string;
-  shortName: string;
-  utilizationPercentage: number;
-  bookedHours: number;
-  availableHours: number;
-}
-
-function ChartTooltip({
-  active,
-  payload,
-}: {
-  active?: boolean;
-  payload?: Array<{ payload: ChartRow }>;
-}) {
-  if (!active || !payload || payload.length === 0) return null;
-  const row = payload[0].payload;
-  return (
-    <div className="rounded-xl border border-border/60 bg-popover/95 px-3 py-2 text-xs shadow-float backdrop-blur">
-      <p className="font-semibold text-foreground">{row.name}</p>
-      <p className="mt-1 text-foreground">{fmtPct(row.utilizationPercentage)}% utilization</p>
-      <p className="text-muted-foreground">
-        {fmtHours(row.bookedHours)}h booked · {fmtHours(row.availableHours)}h available
-      </p>
-    </div>
-  );
-}
-
-function EquipmentTab({ equipment }: { equipment: Equipment[] }) {
-  const [selectedId, setSelectedId] = React.useState<string>(EQUIP_ALL);
-  const [startDate, setStartDate] = React.useState(todayStr());
-  const [endDate, setEndDate] = React.useState(plusDaysStr(7));
-  const [applied, setApplied] = React.useState<{ start: string; end: string } | null>(null);
-
-  // Auto-apply defaults once
-  const autoRef = React.useRef(false);
-  React.useEffect(() => {
-    if (!autoRef.current && equipment.length > 0) {
-      autoRef.current = true;
-      setApplied({ start: startDate, end: endDate });
-    }
-  }, [equipment]);
-
-  const { data: reports, loading, error, refetch } = useAsync(async () => {
-    if (!applied || equipment.length === 0) return [] as UtilizationReport[];
-    const { startIso, endIso } = isoRange(applied.start, applied.end);
-    return fetchAllUtilization(equipment, startIso, endIso);
-  }, [applied, equipment]);
-
-  const dateInvalid = isDateInvalid(startDate, endDate);
-  const selectedIdNum = selectedId === EQUIP_ALL ? null : Number(selectedId);
-  const singleReport = reports?.find((r) => r.equipmentId === selectedIdNum) ?? null;
-
-  const chartRows: ChartRow[] = React.useMemo(() => {
-    return equipment
-      .map((eq) => {
-        const r = reports?.find((x) => x.equipmentId === eq.id);
-        return {
-          id: eq.id,
-          name: eq.equipmentName,
-          shortName: truncate(eq.equipmentName, 14),
-          utilizationPercentage: r?.utilizationPercentage ?? 0,
-          bookedHours: r?.bookedHours ?? 0,
-          availableHours: r?.availableHours ?? 0,
-        };
-      })
-      .sort((a, b) => b.utilizationPercentage - a.utilizationPercentage);
-  }, [equipment, reports]);
-
-  const onGenerate = () => {
-    if (dateInvalid) {
-      toast.error("End date must be on or after the start date.");
-      return;
-    }
-    setApplied({ start: startDate, end: endDate });
-    toast.success("Generating utilization report…");
-  };
-
-  if (loading && !reports) return <ListSkeleton count={3} />;
-  if (error) return <ErrorPanel message={error} onRetry={refetch} />;
-  if (!applied) return <EmptyState icon={Gauge} title="No data yet" description="Click Generate to compute utilization." />;
-
-  return (
-    <div className="flex flex-col gap-6">
-      {/* Controls */}
-      <Card className="glass rounded-2xl border-border/60 p-4 shadow-soft">
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-medium text-muted-foreground">Equipment</label>
-            <Select value={selectedId} onValueChange={setSelectedId}>
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="All equipment" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={EQUIP_ALL}>All equipment</SelectItem>
-                {equipment.map((e) => (
-                  <SelectItem key={e.id} value={String(e.id)}>
-                    {e.equipmentName}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-medium text-muted-foreground">Start date</label>
-            <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-medium text-muted-foreground">End date</label>
-            <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} aria-invalid={dateInvalid || undefined} />
-          </div>
-          <div className="flex items-end">
-            <GenerateButton loading={loading} invalid={dateInvalid} onClick={onGenerate} />
-          </div>
-        </div>
-        <DateInvalidHint show={dateInvalid} />
-        <RangeFooter start={startDate} end={endDate} />
-      </Card>
-
-      {loading ? (
-        <ListSkeleton count={3} />
-      ) : !reports || reports.length === 0 ? (
-        <EmptyState icon={Gauge} title="No data yet" description="Click Generate to compute utilization." />
-      ) : (
         <>
-          {/* Single-equipment panel */}
-          {singleReport && (
-            <section className="flex flex-col gap-3">
-              <div className="flex items-center gap-2">
-                <Gauge className="size-4 text-primary" />
-                <h2 className="text-lg font-semibold tracking-tight text-foreground">
-                  {singleReport.equipmentName}
-                </h2>
-              </div>
-              <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-                <UtilizationGauge report={singleReport} />
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                  <StatTile label="Booked hours" value={`${fmtHours(singleReport.bookedHours)}h`} hint="Total scheduled time" accent="text-primary" />
-                  <StatTile label="Available hours" value={`${fmtHours(singleReport.availableHours)}h`} hint="Open time in range" />
-                  <StatTile label="Utilization" value={`${fmtPct(singleReport.utilizationPercentage)}%`} hint="Booked ÷ available" />
-                </div>
-              </div>
-            </section>
-          )}
+          <EquipmentRangeBar
+            equipment={equipment!}
+            equipmentId={equipmentId}
+            onEquipmentChange={setEquipmentId}
+            start={start}
+            end={end}
+            onStartChange={setStart}
+            onEndChange={setEnd}
+            onGenerate={handleGenerate}
+            loading={loading}
+          />
 
-          {/* Comparison chart */}
-          <section className="flex flex-col gap-3">
-            <div className="flex items-center gap-2">
-              <BarChart3 className="size-4 text-primary" />
-              <h2 className="text-lg font-semibold tracking-tight text-foreground">All equipment comparison</h2>
+          {!params ? (
+            <EmptyState
+              icon={Gauge}
+              title="Select an equipment and generate"
+              description="Pick an equipment and a date range, then click Generate to view its utilization."
+            />
+          ) : loading ? (
+            <CardSkeleton />
+          ) : error ? (
+            <ErrorCard message={error} onRetry={refetch} />
+          ) : report ? (
+            <div className="flex flex-col gap-4">
+              <UtilizationGauge report={report} />
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <p className="text-xs text-muted-foreground">
+                  Window: {fmtDateTime(params.start)} →{" "}
+                  {fmtDateTime(params.end)}
+                </p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={openBenchmark}
+                  className="gap-1.5"
+                >
+                  <Activity className="size-4" /> View Benchmark
+                </Button>
+              </div>
             </div>
-            <Card className="rounded-2xl border-border/60 p-4 shadow-soft">
-              <div className="h-80 w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={chartRows} margin={{ top: 12, right: 16, left: 0, bottom: 12 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" strokeOpacity={0.5} vertical={false} />
-                    <XAxis
-                      dataKey="shortName"
-                      tick={{ fill: "var(--muted-foreground)", fontSize: 11 }}
-                      tickLine={false}
-                      axisLine={{ stroke: "var(--border)", strokeOpacity: 0.5 }}
-                      interval={0}
-                      angle={chartRows.length > 4 ? -25 : 0}
-                      textAnchor={chartRows.length > 4 ? "end" : "middle"}
-                      height={chartRows.length > 4 ? 56 : 28}
-                    />
-                    <YAxis domain={[0, 100]} tick={{ fill: "var(--muted-foreground)", fontSize: 11 }} tickLine={false} axisLine={false} width={36} unit="%" />
-                    <Tooltip cursor={{ fill: "var(--muted)", fillOpacity: 0.4 }} content={<ChartTooltip />} />
-                    <Bar dataKey="utilizationPercentage" radius={[6, 6, 0, 0]}>
-                      {chartRows.map((row) => (
-                        <Cell key={row.id} fill={BAR_COLOR} fillOpacity={singleReport == null || singleReport.equipmentId === row.id ? 1 : 0.4} />
-                      ))}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </Card>
-
-            {/* Breakdown list */}
-            <Card className="rounded-2xl border-border/60 p-4 shadow-soft">
-              <p className="mb-3 text-xs font-medium uppercase tracking-wide text-muted-foreground">Per-equipment breakdown</p>
-              <ul className="flex flex-col gap-2">
-                {chartRows.map((row) => (
-                  <li key={row.id} className="flex items-center justify-between gap-3 rounded-xl border border-border/40 bg-background/40 px-3 py-2">
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-medium text-foreground">{row.name}</p>
-                      <p className="text-xs text-muted-foreground">{fmtHours(row.bookedHours)}h booked · {fmtHours(row.availableHours)}h available</p>
-                    </div>
-                    <span
-                      className="shrink-0 rounded-full px-2.5 py-0.5 text-xs font-semibold"
-                      style={{ backgroundColor: `color-mix(in oklch, ${BAR_COLOR_HEX} 12%, transparent)`, color: BAR_COLOR_HEX }}
-                    >
-                      {fmtPct(row.utilizationPercentage)}%
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            </Card>
-          </section>
+          ) : null}
         </>
       )}
+
+      <Dialog
+        open={benchParams !== null}
+        onOpenChange={(o) => !o && setBenchParams(null)}
+      >
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Benchmark</DialogTitle>
+            <DialogDescription>
+              Current vs. historical utilization for the selected equipment.
+            </DialogDescription>
+          </DialogHeader>
+          {benchLoading ? (
+            <CardSkeleton />
+          ) : benchError ? (
+            <ErrorCard message={benchError} onRetry={refetchBench} />
+          ) : benchmark ? (
+            <BenchmarkView benchmark={benchmark} />
+          ) : null}
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+function BenchmarkView({ benchmark }: { benchmark: BenchmarkReport }) {
+  const TrendIcon =
+    benchmark.trend === "INCREASING"
+      ? TrendingUp
+      : benchmark.trend === "DECREASING"
+        ? TrendingDown
+        : Minus;
+  const trendColor =
+    benchmark.trend === "INCREASING"
+      ? "#10b981"
+      : benchmark.trend === "DECREASING"
+        ? "#f43f5e"
+        : "var(--muted-foreground)";
+  const trendLabel =
+    benchmark.trend === "INCREASING"
+      ? "Up"
+      : benchmark.trend === "DECREASING"
+        ? "Down"
+        : "Stable";
+
+  const data = React.useMemo(
+    () =>
+      benchmark.monthlyHistory.map((m) => ({
+        month: m.month,
+        utilization: m.utilizationPercentage,
+      })),
+    [benchmark.monthlyHistory],
+  );
+
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <div className="rounded-xl border border-border/60 p-3">
+          <p className="text-xs text-muted-foreground">Current</p>
+          <p className="mt-1 text-xl font-semibold tabular-nums text-foreground">
+            {fmtPct(benchmark.currentPeriod.utilizationPercentage)}%
+          </p>
+        </div>
+        <div className="rounded-xl border border-border/60 p-3">
+          <p className="text-xs text-muted-foreground">
+            Historical avg ({benchmark.historicalAverage.periodMonths}m)
+          </p>
+          <p className="mt-1 text-xl font-semibold tabular-nums text-foreground">
+            {fmtPct(benchmark.historicalAverage.utilizationPercentage)}%
+          </p>
+        </div>
+        <div className="rounded-xl border border-border/60 p-3">
+          <p className="text-xs text-muted-foreground">Trend</p>
+          <div className="mt-1 flex items-center gap-1.5">
+            <TrendIcon className="size-5" style={{ color: trendColor }} />
+            <span
+              className="text-xl font-semibold tabular-nums"
+              style={{ color: trendColor }}
+            >
+              {trendLabel} {fmtPct(Math.abs(benchmark.deltaPercentage))}%
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {data.length > 0 ? (
+        <div className="rounded-xl border border-border/60 p-3">
+          <p className="mb-2 text-xs font-medium text-muted-foreground">
+            Monthly history
+          </p>
+          <ResponsiveContainer width="100%" height={140}>
+            <LineChart
+              data={data}
+              margin={{ top: 5, right: 8, bottom: 5, left: -20 }}
+            >
+              <CartesianGrid
+                strokeDasharray="3 3"
+                className="stroke-border/40"
+              />
+              <XAxis
+                dataKey="month"
+                tick={{ fontSize: 10, fill: "var(--muted-foreground)" }}
+                tickLine={false}
+              />
+              <YAxis
+                tick={{ fontSize: 10, fill: "var(--muted-foreground)" }}
+                tickLine={false}
+                domain={[0, 100]}
+              />
+              <Tooltip
+                contentStyle={CHART_TOOLTIP_STYLE}
+                formatter={(v) => [`${fmtPct(Number(v))}%`, "Utilization"]}
+              />
+              <Line
+                type="monotone"
+                dataKey="utilization"
+                stroke={PRIMARY}
+                strokeWidth={2}
+                dot={{ r: 3, fill: PRIMARY }}
+              />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+      ) : null}
     </div>
   );
 }
 
 // ---------------------------------------------------------------------------
-// Tab 2 & 3: Department / Institution (computed client-side)
+// 2 & 3. SCOPE TAB (Department / Institution) — backend scopeUtilization
 // ---------------------------------------------------------------------------
 
-interface ScopeRow {
-  name: string;
-  equipmentCount: number;
-  totalAvailableHours: number;
-  totalBookedHours: number;
-  utilizationPercentage: number;
+interface ScopeParams {
+  scopeId: number;
+  start: string;
+  end: string;
 }
 
-function ScopeTab({ equipment, scope }: { equipment: Equipment[]; scope: "DEPARTMENT" | "INSTITUTION" }) {
-  const fieldKey = scope === "DEPARTMENT" ? "department" : "institution";
-  const label = scope === "DEPARTMENT" ? "Department" : "Institution";
+function ScopeTab({ kind }: { kind: "department" | "institution" }) {
+  const label = kind === "department" ? "Department" : "Institution";
+  const Icon = kind === "department" ? Building2 : Layers;
 
-  const [selectedName, setSelectedName] = React.useState<string>(EQUIP_ALL);
-  const [startDate, setStartDate] = React.useState(todayStr());
-  const [endDate, setEndDate] = React.useState(plusDaysStr(7));
-  const [applied, setApplied] = React.useState<{ start: string; end: string } | null>(null);
+  const {
+    data: scopes,
+    loading: scopesLoading,
+    error: scopesError,
+    refetch: refetchScopes,
+  } = useAsync<Department[] | Institution[]>(
+    () =>
+      kind === "department"
+        ? departmentApi.list()
+        : institutionApi.list(),
+    [kind],
+  );
 
-  // Auto-apply once
-  const autoRef = React.useRef(false);
+  const [start, setStart] = useState(defaultStart());
+  const [end, setEnd] = useState(defaultEnd());
+  const [scopeId, setScopeId] = useState<number | null>(null);
+  const [params, setParams] = useState<ScopeParams | null>(null);
+
+  const {
+    data: report,
+    loading,
+    error,
+    refetch,
+  } = useAsync<ScopeUtilizationReport | undefined>(
+    () =>
+      params
+        ? kind === "department"
+          ? bookingApi.departmentUtilization(
+              params.scopeId,
+              params.start,
+              params.end,
+            )
+          : bookingApi.institutionUtilization(
+              params.scopeId,
+              params.start,
+              params.end,
+            )
+        : Promise.resolve(undefined),
+    [params, kind],
+  );
+
+  // Auto-pick the first scope once the list loads.
   React.useEffect(() => {
-    if (!autoRef.current && equipment.length > 0) {
-      autoRef.current = true;
-      setApplied({ start: startDate, end: endDate });
+    if (scopeId === null && scopes && scopes.length > 0) {
+      setScopeId(scopes[0].id);
     }
-  }, [equipment]);
+  }, [scopes, scopeId]);
 
-  const { data: reports, loading, error, refetch } = useAsync(async () => {
-    if (!applied || equipment.length === 0) return [] as UtilizationReport[];
-    const { startIso, endIso } = isoRange(applied.start, applied.end);
-    return fetchAllUtilization(equipment, startIso, endIso);
-  }, [applied, equipment]);
-
-  // Group by department or institution (client-side)
-  const scopeRows: ScopeRow[] = React.useMemo(() => {
-    const groups = new Map<string, Equipment[]>();
-    for (const eq of equipment) {
-      const name = (eq as any)[fieldKey] as string | undefined;
-      if (!name) continue;
-      const arr = groups.get(name) ?? [];
-      arr.push(eq);
-      groups.set(name, arr);
-    }
-    return Array.from(groups.entries()).map(([name, eqs]) => {
-      const equipmentCount = eqs.length;
-      let totalBooked = 0;
-      let totalAvail = 0;
-      for (const eq of eqs) {
-        const r = reports?.find((x) => x.equipmentId === eq.id);
-        totalBooked += r?.bookedHours ?? 0;
-        totalAvail += r?.availableHours ?? 0;
-      }
-      const pct = totalAvail > 0 ? (totalBooked / totalAvail) * 100 : 0;
-      return { name, equipmentCount, totalAvailableHours: totalAvail, totalBookedHours: totalBooked, utilizationPercentage: pct };
-    }).sort((a, b) => b.utilizationPercentage - a.utilizationPercentage);
-  }, [equipment, reports, fieldKey]);
-
-  const names = distinct(equipment.map((e) => (e as any)[fieldKey] as string | undefined));
-  const dateInvalid = isDateInvalid(startDate, endDate);
-  const selected = selectedName === EQUIP_ALL ? null : scopeRows.find((r) => r.name === selectedName) ?? null;
-
-  const onGenerate = () => {
-    if (dateInvalid) {
-      toast.error("End date must be on or after the start date.");
+  function handleGenerate() {
+    if (scopeId == null) {
+      toast.error(`Select a ${kind} first.`);
       return;
     }
-    setApplied({ start: startDate, end: endDate });
-    toast.success("Generating utilization report…");
-  };
-
-  // Adapt a ScopeRow to UtilizationReport shape for the gauge
-  const gaugeReport: UtilizationReport | null = selected
-    ? { equipmentId: 0, equipmentName: selected.name, bookedHours: selected.totalBookedHours, availableHours: selected.totalAvailableHours, utilizationPercentage: selected.utilizationPercentage }
-    : null;
-
-  if (loading && !reports) return <ListSkeleton count={2} />;
-  if (error) return <ErrorPanel message={error} onRetry={refetch} />;
+    setParams({ scopeId, start: toISOStart(start), end: toISOEnd(end) });
+  }
 
   return (
-    <div className="flex flex-col gap-6">
-      <Card className="glass rounded-2xl border-border/60 p-4 shadow-soft">
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-medium text-muted-foreground">{label}</label>
-            <Select value={selectedName} onValueChange={setSelectedName}>
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder={`All ${label.toLowerCase()}s`} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={EQUIP_ALL}>All {label.toLowerCase()}s</SelectItem>
-                {names.map((n) => (
-                  <SelectItem key={n} value={n}>{n}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-medium text-muted-foreground">Start date</label>
-            <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-medium text-muted-foreground">End date</label>
-            <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} aria-invalid={dateInvalid || undefined} />
-          </div>
-          <div className="flex items-end">
-            <GenerateButton loading={loading} invalid={dateInvalid} onClick={onGenerate} />
-          </div>
-        </div>
-        <DateInvalidHint show={dateInvalid} />
-        <RangeFooter start={startDate} end={endDate} />
-      </Card>
-
-      {loading ? (
-        <ListSkeleton count={2} />
-      ) : !applied ? (
-        <EmptyState icon={Gauge} title="No data yet" description="Click Generate to compute utilization." />
-      ) : scopeRows.length === 0 ? (
-        <EmptyState icon={Building2} title={`No ${label.toLowerCase()}s found`} description={`Add ${label.toLowerCase()}s to equipment to see aggregated utilization.`} />
+    <div className="flex flex-col gap-4">
+      {scopesLoading ? (
+        <ListSkeleton count={1} />
+      ) : scopesError ? (
+        <ErrorCard message={scopesError} onRetry={refetchScopes} />
+      ) : (scopes?.length ?? 0) === 0 ? (
+        <EmptyState
+          icon={Icon}
+          title={`No ${kind}s available`}
+          description={`Add ${kind}s first, then come back to analyze their utilization.`}
+        />
       ) : (
         <>
-          {/* Single scope panel */}
-          {gaugeReport && (
-            <section className="flex flex-col gap-3">
-              <div className="flex items-center gap-2">
-                <Building2 className="size-4 text-primary" />
-                <h2 className="text-lg font-semibold tracking-tight text-foreground">{gaugeReport.equipmentName}</h2>
-              </div>
-              <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-                <UtilizationGauge report={gaugeReport} />
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                  <StatTile label="Equipment count" value={String(selected?.equipmentCount ?? 0)} hint={`In this ${label.toLowerCase()}`} />
-                  <StatTile label="Booked hours" value={`${selected?.totalBookedHours ?? 0}h`} accent="text-primary" />
-                  <StatTile label="Utilization" value={`${fmtPct(selected?.utilizationPercentage ?? 0)}%`} hint="Booked ÷ available" />
-                </div>
-              </div>
-            </section>
-          )}
-
-          {/* All scopes comparison list */}
-          <Card className="rounded-2xl border-border/60 p-4 shadow-soft">
-            <p className="mb-3 text-xs font-medium uppercase tracking-wide text-muted-foreground">{label} breakdown</p>
-            <ul className="flex flex-col gap-2">
-              {scopeRows.map((row) => (
-                <li key={row.name} className="flex items-center justify-between gap-3 rounded-xl border border-border/40 bg-background/40 px-3 py-2">
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-medium text-foreground">{row.name}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {row.equipmentCount} equipment · {fmtHours(row.totalBookedHours)}h booked · {fmtHours(row.totalAvailableHours)}h available
-                    </p>
-                  </div>
-                  <span
-                    className="shrink-0 rounded-full px-2.5 py-0.5 text-xs font-semibold"
-                    style={{ backgroundColor: `color-mix(in oklch, ${BAR_COLOR_HEX} 12%, transparent)`, color: BAR_COLOR_HEX }}
+          <Card className="rounded-2xl border-border/60 p-4 shadow-soft sm:p-5">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:flex-wrap">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-muted-foreground">
+                    {label}
+                  </label>
+                  <Select
+                    value={String(scopeId ?? "")}
+                    onValueChange={(v) => setScopeId(Number(v))}
                   >
-                    {fmtPct(row.utilizationPercentage)}%
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </Card>
-        </>
-      )}
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Tab 4: Heatmap (computed client-side from /api/bookings/all)
-// ---------------------------------------------------------------------------
-
-const DAY_LABELS = ["", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-
-function HeatmapTab({ equipment }: { equipment: Equipment[] }) {
-  const [selectedId, setSelectedId] = React.useState<string>(equipment[0] ? String(equipment[0].id) : EQUIP_ALL);
-  const [startDate, setStartDate] = React.useState(todayStr());
-  const [endDate, setEndDate] = React.useState(plusDaysStr(7));
-  const [applied, setApplied] = React.useState<{ start: string; end: string } | null>(null);
-
-  const autoRef = React.useRef(false);
-  React.useEffect(() => {
-    if (!autoRef.current && equipment.length > 0) {
-      autoRef.current = true;
-      setApplied({ start: startDate, end: endDate });
-    }
-  }, [equipment]);
-
-  // Fetch ALL bookings (LAB_MANAGER has access), then compute heatmap client-side
-  const { data: allBookings, loading, error, refetch } = useAsync(async () => {
-    if (!applied) return [] as Booking[];
-    return bookingApi.allBookings();
-  }, [applied]);
-
-  const heatmap = React.useMemo(() => {
-    if (!allBookings || !applied) return [] as { dayOfWeek: number; hour: number; bookedHours: number; bookingCount: number }[];
-    const { startIso, endIso } = isoRange(applied.start, applied.end);
-    const startMs = new Date(startIso).getTime();
-    const endMs = new Date(endIso).getTime();
-    const eqId = selectedId === EQUIP_ALL ? null : Number(selectedId);
-
-    // 8×24 grid (index 1-7 for Mon-Sun, 0-23 for hours)
-    const hours = new Array(8).fill(null).map(() => new Array(24).fill(0));
-    const counts = new Array(8).fill(null).map(() => new Array(24).fill(0));
-
-    for (const b of allBookings) {
-      if (eqId !== null && b.equipment.id !== eqId) continue;
-      if (b.status === "CANCELLED" || b.status === "REJECTED") continue;
-      const bStart = new Date(b.startTime).getTime();
-      const bEnd = new Date(b.endTime).getTime();
-      if (bEnd < startMs || bStart > endMs) continue;
-
-      // Iterate hour by hour through the booking
-      let cursor = new Date(Math.max(bStart, startMs));
-      const effectiveEnd = new Date(Math.min(bEnd, endMs));
-      while (cursor < effectiveEnd) {
-        const dow = cursor.getDay() === 0 ? 7 : cursor.getDay(); // 1=Mon, 7=Sun
-        const hour = cursor.getHours();
-        hours[dow][hour] += 1;
-        counts[dow][hour] += 1;
-        cursor = new Date(cursor.getTime() + 3600_000); // +1 hour
-      }
-    }
-
-    const result: { dayOfWeek: number; hour: number; bookedHours: number; bookingCount: number }[] = [];
-    for (let d = 1; d <= 7; d++) {
-      for (let h = 0; h < 24; h++) {
-        if (hours[d][h] > 0) {
-          result.push({ dayOfWeek: d, hour: h, bookedHours: hours[d][h], bookingCount: counts[d][h] });
-        }
-      }
-    }
-    return result;
-  }, [allBookings, applied, selectedId]);
-
-  const dateInvalid = isDateInvalid(startDate, endDate);
-
-  const onGenerate = () => {
-    if (dateInvalid) {
-      toast.error("End date must be on or after the start date.");
-      return;
-    }
-    setApplied({ start: startDate, end: endDate });
-    toast.success("Generating heatmap…");
-  };
-
-  // Build a lookup map for quick cell access
-  const cellMap = React.useMemo(() => {
-    const m = new Map<string, number>();
-    for (const p of heatmap) {
-      m.set(`${p.dayOfWeek}-${p.hour}`, p.bookedHours);
-    }
-    return m;
-  }, [heatmap]);
-
-  const maxHours = React.useMemo(() => Math.max(1, ...heatmap.map((p) => p.bookedHours)), [heatmap]);
-
-  if (loading && !allBookings) return <ListSkeleton count={2} />;
-  if (error) return <ErrorPanel message={error} onRetry={refetch} />;
-
-  return (
-    <div className="flex flex-col gap-6">
-      <Card className="glass rounded-2xl border-border/60 p-4 shadow-soft">
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-medium text-muted-foreground">Equipment</label>
-            <Select value={selectedId} onValueChange={setSelectedId}>
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="All equipment" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={EQUIP_ALL}>All equipment</SelectItem>
-                {equipment.map((e) => (
-                  <SelectItem key={e.id} value={String(e.id)}>
-                    {e.equipmentName}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-medium text-muted-foreground">Start date</label>
-            <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-medium text-muted-foreground">End date</label>
-            <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} aria-invalid={dateInvalid || undefined} />
-          </div>
-          <div className="flex items-end">
-            <GenerateButton loading={loading} invalid={dateInvalid} onClick={onGenerate} />
-          </div>
-        </div>
-        <DateInvalidHint show={dateInvalid} />
-        <RangeFooter start={startDate} end={endDate} />
-      </Card>
-
-      {loading ? (
-        <ListSkeleton count={2} />
-      ) : !applied ? (
-        <EmptyState icon={Grid3x3} title="No data yet" description="Click Generate to compute the heatmap." />
-      ) : heatmap.length === 0 ? (
-        <EmptyState icon={Grid3x3} title="No bookings in this range" description="Try a wider date range or select all equipment." />
-      ) : (
-        <Card className="rounded-2xl border-border/60 p-4 shadow-soft">
-          <div className="mb-3 flex items-center gap-2">
-            <Grid3x3 className="size-4 text-primary" />
-            <h2 className="text-sm font-semibold tracking-tight text-foreground">Peak usage patterns</h2>
-          </div>
-          {/* Heatmap grid */}
-          <div className="overflow-x-auto">
-            <div className="inline-block">
-              {/* Hour labels */}
-              <div className="flex" style={{ marginLeft: 44 }}>
-                {Array.from({ length: 24 }, (_, h) => (
-                  <div key={h} className="text-center text-[9px] text-muted-foreground" style={{ width: 22 }}>
-                    {h}
-                  </div>
-                ))}
-              </div>
-              {/* Day rows */}
-              {Array.from({ length: 7 }, (_, i) => i + 1).map((dow) => (
-                <div key={dow} className="flex items-center">
-                  <div className="text-right pr-2 text-[10px] font-medium text-muted-foreground" style={{ width: 36 }}>
-                    {DAY_LABELS[dow]}
-                  </div>
-                  {Array.from({ length: 24 }, (_, h) => {
-                    const val = cellMap.get(`${dow}-${h}`) ?? 0;
-                    const opacity = val > 0 ? Math.min(100, (val / maxHours) * 100) : 0;
-                    return (
-                      <div
-                        key={h}
-                        className="m-[1px] rounded-sm"
-                        style={{
-                          width: 20,
-                          height: 20,
-                          backgroundColor: val > 0
-                            ? `color-mix(in oklch, var(--primary) ${Math.max(15, opacity)}%, transparent)`
-                            : "var(--muted)",
-                        }}
-                        title={`${DAY_LABELS[dow]} ${h}:00 — ${fmtHours(val)}h booked`}
-                      />
-                    );
-                  })}
+                    <SelectTrigger className="w-full sm:w-72">
+                      <SelectValue placeholder={`Select ${kind}`} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {scopes!.map((s) => (
+                        <SelectItem key={s.id} value={String(s.id)}>
+                          {s.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
-              ))}
-            </div>
-          </div>
-          {/* Legend */}
-          <div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
-            <span>Less</span>
-            <div className="flex gap-0.5">
-              {[15, 30, 50, 70, 100].map((o) => (
-                <div
-                  key={o}
-                  className="h-3 w-5 rounded-sm"
-                  style={{ backgroundColor: `color-mix(in oklch, var(--primary) ${o}%, transparent)` }}
-                />
-              ))}
-            </div>
-            <span>More</span>
-          </div>
-        </Card>
-      )}
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Tab 5: Idle Time (computed client-side from per-equipment utilization)
-// ---------------------------------------------------------------------------
-
-interface IdleRow {
-  equipmentId: number;
-  equipmentName: string;
-  totalPeriodHours: number;
-  bookedHours: number;
-  idleHours: number;
-  idlePercentage: number;
-}
-
-function IdleTimeTab({ equipment }: { equipment: Equipment[] }) {
-  const [startDate, setStartDate] = React.useState(todayStr());
-  const [endDate, setEndDate] = React.useState(plusDaysStr(7));
-  const [applied, setApplied] = React.useState<{ start: string; end: string } | null>(null);
-
-  const autoRef = React.useRef(false);
-  React.useEffect(() => {
-    if (!autoRef.current && equipment.length > 0) {
-      autoRef.current = true;
-      setApplied({ start: startDate, end: endDate });
-    }
-  }, [equipment]);
-
-  const { data: reports, loading, error, refetch } = useAsync(async () => {
-    if (!applied || equipment.length === 0) return [] as UtilizationReport[];
-    const { startIso, endIso } = isoRange(applied.start, applied.end);
-    return fetchAllUtilization(equipment, startIso, endIso);
-  }, [applied, equipment]);
-
-  const idleRows: IdleRow[] = React.useMemo(() => {
-    return equipment
-      .filter((e) => e.status !== "RETIRED")
-      .map((eq) => {
-        const r = reports?.find((x) => x.equipmentId === eq.id);
-        const total = r?.availableHours ?? 0;
-        const booked = r?.bookedHours ?? 0;
-        const idle = Math.max(0, total - booked);
-        const pct = total > 0 ? (idle / total) * 100 : 0;
-        return {
-          equipmentId: eq.id,
-          equipmentName: eq.equipmentName,
-          totalPeriodHours: total,
-          bookedHours: booked,
-          idleHours: idle,
-          idlePercentage: pct,
-        };
-      })
-      .sort((a, b) => b.idlePercentage - a.idlePercentage);
-  }, [equipment, reports]);
-
-  const dateInvalid = isDateInvalid(startDate, endDate);
-
-  const onGenerate = () => {
-    if (dateInvalid) {
-      toast.error("End date must be on or after the start date.");
-      return;
-    }
-    setApplied({ start: startDate, end: endDate });
-    toast.success("Generating idle time report…");
-  };
-
-  if (loading && !reports) return <ListSkeleton count={3} />;
-  if (error) return <ErrorPanel message={error} onRetry={refetch} />;
-
-  return (
-    <div className="flex flex-col gap-6">
-      <Card className="glass rounded-2xl border-border/60 p-4 shadow-soft">
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-          <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-medium text-muted-foreground">Start date</label>
-            <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-medium text-muted-foreground">End date</label>
-            <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} aria-invalid={dateInvalid || undefined} />
-          </div>
-          <div className="flex items-end">
-            <GenerateButton loading={loading} invalid={dateInvalid} onClick={onGenerate} />
-          </div>
-        </div>
-        <DateInvalidHint show={dateInvalid} />
-        <RangeFooter start={startDate} end={endDate} />
-      </Card>
-
-      {loading ? (
-        <ListSkeleton count={3} />
-      ) : !applied ? (
-        <EmptyState icon={Clock} title="No data yet" description="Click Generate to compute idle time." />
-      ) : idleRows.length === 0 ? (
-        <EmptyState icon={Clock} title="No equipment found" description="Add non-retired equipment to see idle time." />
-      ) : (
-        <Card className="rounded-2xl border-border/60 p-4 shadow-soft">
-          <div className="mb-3 flex items-center gap-2">
-            <Clock className="size-4 text-primary" />
-            <h2 className="text-sm font-semibold tracking-tight text-foreground">Idle time per equipment</h2>
-          </div>
-          <ul className="flex flex-col gap-2">
-            {idleRows.map((row) => (
-              <li
-                key={row.equipmentId}
-                className="flex flex-col gap-2 rounded-xl border border-border/40 bg-background/40 px-3 py-2.5"
-              >
-                <div className="flex items-center justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-medium text-foreground">{row.equipmentName}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {fmtHours(row.bookedHours)}h booked · {fmtHours(row.idleHours)}h idle · {fmtHours(row.totalPeriodHours)}h total
-                    </p>
-                  </div>
-                  <div className="flex shrink-0 items-center gap-2">
-                    {row.idlePercentage > 80 && (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/12 px-2 py-0.5 text-xs font-medium text-amber-700 ring-1 ring-amber-500/25 dark:text-amber-300">
-                        High idle
-                      </span>
-                    )}
-                    <span className="text-sm font-semibold text-foreground">{fmtPct(row.idlePercentage)}%</span>
-                  </div>
-                </div>
-                {/* Progress bar: booked (primary) vs idle (muted) */}
-                <div className="flex h-2 overflow-hidden rounded-full bg-muted">
-                  <div
-                    className="bg-primary"
-                    style={{
-                      width: `${row.totalPeriodHours > 0 ? (row.bookedHours / row.totalPeriodHours) * 100 : 0}%`,
-                    }}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-muted-foreground">
+                    Start date
+                  </label>
+                  <Input
+                    type="date"
+                    value={start}
+                    onChange={(e) => setStart(e.target.value)}
+                    className="w-full sm:w-44"
                   />
                 </div>
-              </li>
-            ))}
-          </ul>
-        </Card>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-muted-foreground">
+                    End date
+                  </label>
+                  <Input
+                    type="date"
+                    value={end}
+                    onChange={(e) => setEnd(e.target.value)}
+                    className="w-full sm:w-44"
+                  />
+                </div>
+              </div>
+              <Button
+                onClick={handleGenerate}
+                disabled={loading || scopeId == null}
+                className="gap-1.5"
+              >
+                {loading ? (
+                  <span className="size-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                ) : (
+                  <Sparkles className="size-4" />
+                )}
+                {loading ? "Generating…" : "Generate"}
+              </Button>
+            </div>
+          </Card>
+
+          {!params ? (
+            <EmptyState
+              icon={Icon}
+              title={`Select a ${kind} and generate`}
+              description={`Pick a ${kind} and a date range, then click Generate.`}
+            />
+          ) : loading ? (
+            <CardSkeleton />
+          ) : error ? (
+            <ErrorCard message={error} onRetry={refetch} />
+          ) : report ? (
+            <ScopeReportView report={report} />
+          ) : null}
+        </>
       )}
+    </div>
+  );
+}
+
+function ScopeReportView({ report }: { report: ScopeUtilizationReport }) {
+  const pct = Math.max(0, Math.min(100, report.utilizationPercentage));
+  const sorted = React.useMemo(
+    () =>
+      [...report.perEquipment].sort(
+        (a, b) => b.utilizationPercentage - a.utilizationPercentage,
+      ),
+    [report.perEquipment],
+  );
+
+  return (
+    <div className="flex flex-col gap-4">
+      <Card className="rounded-2xl border-border/60 p-5 shadow-soft">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+          <div className="min-w-0">
+            <p className="text-sm font-medium text-muted-foreground">
+              {report.scopeName}
+            </p>
+            <p className="mt-1 text-3xl font-semibold tracking-tight text-foreground">
+              {fmtPct(pct)}%
+            </p>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              {report.totalEquipment} equipment ·{" "}
+              {fmtHours(report.totalBookedHours)}h booked ·{" "}
+              {fmtHours(report.totalAvailableHours)}h available
+            </p>
+          </div>
+          <Badge variant="outline" className="capitalize">
+            {report.scope}
+          </Badge>
+        </div>
+        <div className="mt-4 h-2.5 w-full overflow-hidden rounded-full bg-muted">
+          <div
+            className="h-full rounded-full transition-all duration-500"
+            style={{ width: `${pct}%`, backgroundColor: PRIMARY }}
+          />
+        </div>
+        <p className="mt-3 text-xs text-muted-foreground">
+          Window: {fmtDateTime(report.periodStart)} →{" "}
+          {fmtDateTime(report.periodEnd)}
+        </p>
+      </Card>
+
+      <Card className="rounded-2xl border-border/60 p-5 shadow-soft">
+        <SectionLabel icon={Gauge}>Per-equipment breakdown</SectionLabel>
+        {sorted.length === 0 ? (
+          <p className="mt-4 text-sm text-muted-foreground">
+            No equipment in this scope.
+          </p>
+        ) : (
+          <div className="mt-3 overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Equipment</TableHead>
+                  <TableHead className="text-right">Booked (h)</TableHead>
+                  <TableHead className="text-right">Available (h)</TableHead>
+                  <TableHead className="text-right">Utilization</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {sorted.map((r) => (
+                  <TableRow key={r.equipmentId}>
+                    <TableCell className="font-medium text-foreground">
+                      {r.equipmentName}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      {fmtHours(r.bookedHours)}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      {fmtHours(r.availableHours)}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <UtilizationPill pct={r.utilizationPercentage} />
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+      </Card>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// 4. HEATMAP TAB — bookingApi.heatmap(equipmentId, start, end) → 7×24 grid
+// ---------------------------------------------------------------------------
+
+interface HeatmapParams {
+  equipmentId: number;
+  start: string;
+  end: string;
+}
+
+function HeatmapTab() {
+  const {
+    data: equipment,
+    loading: equipLoading,
+    error: equipError,
+    refetch: refetchEquip,
+  } = useAsync<Equipment[]>(() => equipmentApi.getAllEquipment(), []);
+
+  const [start, setStart] = useState(defaultStart());
+  const [end, setEnd] = useState(defaultEnd());
+  const [equipmentId, setEquipmentId] = useState<number | null>(null);
+  const [params, setParams] = useState<HeatmapParams | null>(null);
+
+  const {
+    data: heatmap,
+    loading,
+    error,
+    refetch,
+  } = useAsync<HeatmapReport | undefined>(
+    () =>
+      params
+        ? bookingApi.heatmap(params.equipmentId, params.start, params.end)
+        : Promise.resolve(undefined),
+    [params],
+  );
+
+  // Auto-pick first equipment.
+  React.useEffect(() => {
+    if (equipmentId === null && equipment && equipment.length > 0) {
+      setEquipmentId(equipment[0].id);
+    }
+  }, [equipment, equipmentId]);
+
+  // Build a 7×24 grid of {booked, count} from the flat HeatmapPoint[].
+  const grid = React.useMemo(() => {
+    const g: { booked: number; count: number }[][] = Array.from(
+      { length: 7 },
+      () => Array.from({ length: 24 }, () => ({ booked: 0, count: 0 })),
+    );
+    for (const p of heatmap?.heatmap ?? []) {
+      const d = dayIdx(p.dayOfWeek);
+      if (d < 0) continue;
+      const h = Math.max(0, Math.min(23, p.hourOfDay));
+      g[d][h].booked += p.bookedHours;
+      g[d][h].count += p.bookingCount;
+    }
+    return g;
+  }, [heatmap]);
+
+  const maxBooked = React.useMemo(() => {
+    let m = 0;
+    for (const row of grid) for (const c of row) if (c.booked > m) m = c.booked;
+    return m;
+  }, [grid]);
+
+  function handleGenerate() {
+    if (equipmentId == null) {
+      toast.error("Select an equipment first.");
+      return;
+    }
+    setParams({
+      equipmentId,
+      start: toISOStart(start),
+      end: toISOEnd(end),
+    });
+  }
+
+  return (
+    <div className="flex flex-col gap-4">
+      {equipLoading ? (
+        <ListSkeleton count={1} />
+      ) : equipError ? (
+        <ErrorCard message={equipError} onRetry={refetchEquip} />
+      ) : (equipment?.length ?? 0) === 0 ? (
+        <EmptyState
+          icon={Grid3x3}
+          title="No equipment available"
+          description="Add equipment first, then come back to render a heatmap."
+        />
+      ) : (
+        <>
+          <EquipmentRangeBar
+            equipment={equipment!}
+            equipmentId={equipmentId}
+            onEquipmentChange={setEquipmentId}
+            start={start}
+            end={end}
+            onStartChange={setStart}
+            onEndChange={setEnd}
+            onGenerate={handleGenerate}
+            loading={loading}
+          />
+
+          {!params ? (
+            <EmptyState
+              icon={Grid3x3}
+              title="Pick an equipment and generate"
+              description="Select equipment and a date range, then click Generate to render the day × hour heatmap."
+            />
+          ) : loading ? (
+            <CardSkeleton />
+          ) : error ? (
+            <ErrorCard message={error} onRetry={refetch} />
+          ) : heatmap && maxBooked === 0 ? (
+            <EmptyState
+              icon={Grid3x3}
+              title="No heatmap data for this range"
+              description="No bookings occurred for this equipment in the selected period."
+            />
+          ) : heatmap ? (
+            <Card className="rounded-2xl border-border/60 p-5 shadow-soft">
+              <SectionLabel icon={Grid3x3}>
+                Booking intensity heatmap
+              </SectionLabel>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Each cell = booked hours for that day-of-week × hour-of-day
+                across the selected range. Hover for details.
+              </p>
+
+              <div className="mt-4 overflow-x-auto">
+                <div className="min-w-[680px]">
+                  {/* Hour header row */}
+                  <div className="flex items-end gap-px pl-10">
+                    {Array.from({ length: 24 }, (_, h) => (
+                      <div
+                        key={h}
+                        className="flex-1 text-center text-[10px] text-muted-foreground"
+                      >
+                        {h}
+                      </div>
+                    ))}
+                  </div>
+                  {/* Day rows */}
+                  <div className="mt-1 flex flex-col gap-px">
+                    {grid.map((row, d) => (
+                      <div key={d} className="flex items-center gap-px">
+                        <div className="w-10 shrink-0 text-[11px] font-medium text-muted-foreground">
+                          {DAY_LABELS[d]}
+                        </div>
+                        {row.map((cell, h) => {
+                          const intensity =
+                            maxBooked > 0
+                              ? Math.round((cell.booked / maxBooked) * 100)
+                              : 0;
+                          const bg =
+                            cell.booked === 0
+                              ? "color-mix(in oklch, var(--muted) 35%, transparent)"
+                              : `color-mix(in oklch, var(--primary) ${Math.max(
+                                  12,
+                                  intensity,
+                                )}%, transparent)`;
+                          return (
+                            <div
+                              key={h}
+                              title={`${DAY_LABELS[d]} ${h}:00 — ${fmtHours(
+                                cell.booked,
+                              )}h booked · ${cell.count} booking${
+                                cell.count === 1 ? "" : "s"
+                              }`}
+                              className="h-6 flex-1 rounded-[3px] ring-1 ring-inset ring-border/30 transition-transform hover:scale-110"
+                              style={{ backgroundColor: bg }}
+                            />
+                          );
+                        })}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Legend */}
+              <div className="mt-5 flex flex-wrap items-center gap-3">
+                <span className="text-xs text-muted-foreground">Less</span>
+                <div
+                  className="h-2 w-40 rounded-full"
+                  style={{
+                    background:
+                      "linear-gradient(to right, color-mix(in oklch, var(--muted) 35%, transparent), var(--primary))",
+                  }}
+                />
+                <span className="text-xs text-muted-foreground">More</span>
+                <span className="ml-auto text-xs text-muted-foreground">
+                  Max booked hours in range: {fmtHours(maxBooked)}h
+                </span>
+              </div>
+              <p className="mt-3 text-xs text-muted-foreground">
+                Window: {fmtDateTime(heatmap.periodStart)} →{" "}
+                {fmtDateTime(heatmap.periodEnd)}
+              </p>
+            </Card>
+          ) : null}
+        </>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// 5. IDLE TIME TAB — bookingApi.idleReport(start, end, thresholdHours)
+// ---------------------------------------------------------------------------
+
+interface IdleParams {
+  start: string;
+  end: string;
+  thresholdHours: number;
+}
+
+function IdleTimeTab() {
+  const [start, setStart] = useState(defaultStart());
+  const [end, setEnd] = useState(defaultEnd());
+  const [threshold, setThreshold] = useState(500);
+  const [params, setParams] = useState<IdleParams | null>(null);
+
+  const {
+    data: report,
+    loading,
+    error,
+    refetch,
+  } = useAsync<IdleReport | undefined>(
+    () =>
+      params
+        ? bookingApi.idleReport(
+            params.start,
+            params.end,
+            params.thresholdHours,
+          )
+        : Promise.resolve(undefined),
+    [params],
+  );
+
+  const rows = React.useMemo<IdleEquipmentRow[]>(
+    () =>
+      report
+        ? [...report.idleEquipment].sort((a, b) => b.idleHours - a.idleHours)
+        : [],
+    [report],
+  );
+
+  function handleGenerate() {
+    setParams({
+      start: toISOStart(start),
+      end: toISOEnd(end),
+      thresholdHours: threshold,
+    });
+  }
+
+  function handleExport() {
+    if (!report || report.idleEquipment.length === 0) {
+      toast.error("Nothing to export.");
+      return;
+    }
+    exportIdleCsv(report.idleEquipment, params!);
+    toast.success("CSV exported.");
+  }
+
+  return (
+    <div className="flex flex-col gap-4">
+      <DateRangeBar
+        start={start}
+        end={end}
+        onStartChange={setStart}
+        onEndChange={setEnd}
+        onGenerate={handleGenerate}
+        loading={loading}
+        extra={
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-muted-foreground">
+              Threshold (idle hours)
+            </label>
+            <Input
+              type="number"
+              min={0}
+              value={threshold}
+              onChange={(e) => setThreshold(Number(e.target.value) || 0)}
+              className="w-full sm:w-36"
+            />
+          </div>
+        }
+      />
+
+      {!params ? (
+        <EmptyState
+          icon={Clock}
+          title="Pick a range and generate"
+          description="Set a date range and an idle-hours threshold. Equipment with at least that many available hours is considered idle."
+        />
+      ) : loading ? (
+        <ListSkeleton count={3} />
+      ) : error ? (
+        <ErrorCard message={error} onRetry={refetch} />
+      ) : report && rows.length === 0 ? (
+        <EmptyState
+          icon={Clock}
+          title="No idle equipment in this range"
+          description={`Nothing met the ${params.thresholdHours}h idle threshold for the selected period.`}
+        />
+      ) : report ? (
+        <div className="flex flex-col gap-4">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <StatTile
+              label="Idle equipment"
+              value={report.totalIdleCount}
+              hint={`≥ ${params.thresholdHours}h available`}
+              icon={Clock}
+            />
+            <StatTile
+              label="Period start"
+              value={fmtDateTime(params.start)}
+              icon={CalendarRange}
+            />
+            <StatTile
+              label="Period end"
+              value={fmtDateTime(params.end)}
+              icon={CalendarRange}
+            />
+          </div>
+
+          <div className="flex justify-end">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleExport}
+              className="gap-1.5"
+            >
+              <Download className="size-4" /> Export CSV
+            </Button>
+          </div>
+
+          <Card className="rounded-2xl border-border/60 p-5 shadow-soft">
+            <SectionLabel icon={Clock}>
+              Idle equipment ({rows.length})
+            </SectionLabel>
+            <div className="mt-3 overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Equipment</TableHead>
+                    <TableHead>Serial</TableHead>
+                    <TableHead>Department</TableHead>
+                    <TableHead className="text-right">Booked (h)</TableHead>
+                    <TableHead className="text-right">Available (h)</TableHead>
+                    <TableHead className="text-right">Idle (h)</TableHead>
+                    <TableHead className="text-right">Utilization</TableHead>
+                    <TableHead>Status</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {rows.map((r) => (
+                    <TableRow key={r.equipmentId}>
+                      <TableCell className="font-medium text-foreground">
+                        {r.equipmentName}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {r.serial}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {r.department ?? "—"}
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums">
+                        {fmtHours(r.bookedHours)}
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums">
+                        {fmtHours(r.availableHours)}
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums font-semibold text-amber-600 dark:text-amber-400">
+                        {fmtHours(r.idleHours)}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <UtilizationPill pct={r.utilizationPercentage} />
+                      </TableCell>
+                      <TableCell>
+                        <StatusBadge status={r.status} type="equipment" />
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </Card>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function exportIdleCsv(
+  rows: IdleEquipmentRow[],
+  params: IdleParams,
+): void {
+  const headers = [
+    "Equipment Name",
+    "Serial",
+    "Department",
+    "Booked Hours",
+    "Available Hours",
+    "Idle Hours",
+    "Utilization %",
+    "Status",
+  ];
+  const escape = (v: string | number | null | undefined): string => {
+    const s = v == null ? "" : String(v);
+    if (/[",\n]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
+    return s;
+  };
+  const lines = [headers.join(",")];
+  for (const r of rows) {
+    lines.push(
+      [
+        escape(r.equipmentName),
+        escape(r.serial),
+        escape(r.department),
+        r.bookedHours,
+        r.availableHours,
+        r.idleHours,
+        r.utilizationPercentage,
+        escape(r.status),
+      ].join(","),
+    );
+  }
+  lines.push("");
+  lines.push(
+    `# period: ${params.start} → ${params.end} · threshold: ${params.thresholdHours}h`,
+  );
+  const csv = lines.join("\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `idle-report-${format(new Date(), "yyyy-MM-dd")}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+// ---------------------------------------------------------------------------
+// 6. PEAK PATTERNS TAB — bookingApi.peakAnalysis(start, end)
+// ---------------------------------------------------------------------------
+
+interface RangeParams {
+  start: string;
+  end: string;
+}
+
+function PeakTab() {
+  const [start, setStart] = useState(defaultStart());
+  const [end, setEnd] = useState(defaultEnd());
+  const [params, setParams] = useState<RangeParams | null>(null);
+
+  const {
+    data: report,
+    loading,
+    error,
+    refetch,
+  } = useAsync<PeakReport | undefined>(
+    () =>
+      params
+        ? bookingApi.peakAnalysis(params.start, params.end)
+        : Promise.resolve(undefined),
+    [params],
+  );
+
+  function handleGenerate() {
+    setParams({ start: toISOStart(start), end: toISOEnd(end) });
+  }
+
+  const hourlyData = React.useMemo(
+    () =>
+      (report?.hourlyDistribution ?? []).map((d) => ({
+        hour: `${d.hour}:00`,
+        bookedHours: d.bookedHours,
+      })),
+    [report],
+  );
+  const dailyData = React.useMemo(
+    () => report?.dailyDistribution ?? [],
+    [report],
+  );
+
+  return (
+    <div className="flex flex-col gap-4">
+      <DateRangeBar
+        start={start}
+        end={end}
+        onStartChange={setStart}
+        onEndChange={setEnd}
+        onGenerate={handleGenerate}
+        loading={loading}
+      />
+
+      {!params ? (
+        <EmptyState
+          icon={BarChart3}
+          title="Pick a range and generate"
+          description="Set a date range, then click Generate to surface peak booking hours and days."
+        />
+      ) : loading ? (
+        <ListSkeleton count={2} />
+      ) : error ? (
+        <ErrorCard message={error} onRetry={refetch} />
+      ) : report ? (
+        <div className="flex flex-col gap-4">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <StatTile
+              label="Peak hour"
+              value={
+                report.peakHourOfDay != null
+                  ? `${report.peakHourOfDay}:00`
+                  : "—"
+              }
+              hint={`${fmtHours(report.peakHourBookedHours)}h booked`}
+              icon={Clock}
+            />
+            <StatTile
+              label="Peak day"
+              value={report.peakDayOfWeek ?? "—"}
+              hint={`${fmtHours(report.peakDayBookedHours)}h booked`}
+              icon={CalendarRange}
+            />
+          </div>
+
+          <Card className="rounded-2xl border-border/60 p-5 shadow-soft">
+            <SectionLabel icon={BarChart3}>Hourly distribution</SectionLabel>
+            {hourlyData.length === 0 ? (
+              <p className="mt-4 text-sm text-muted-foreground">
+                No hourly data for this range.
+              </p>
+            ) : (
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart
+                  data={hourlyData}
+                  margin={{ top: 10, right: 12, bottom: 5, left: -10 }}
+                >
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    className="stroke-border/40"
+                  />
+                  <XAxis
+                    dataKey="hour"
+                    tick={{ fontSize: 10, fill: "var(--muted-foreground)" }}
+                    tickLine={false}
+                  />
+                  <YAxis
+                    tick={{ fontSize: 11, fill: "var(--muted-foreground)" }}
+                    tickLine={false}
+                  />
+                  <Tooltip
+                    contentStyle={CHART_TOOLTIP_STYLE}
+                    formatter={(v) => [`${fmtHours(Number(v))}h`, "Booked"]}
+                  />
+                  <Bar
+                    dataKey="bookedHours"
+                    fill={PRIMARY}
+                    radius={[4, 4, 0, 0]}
+                  />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
+          </Card>
+
+          <Card className="rounded-2xl border-border/60 p-5 shadow-soft">
+            <SectionLabel icon={CalendarRange}>
+              Daily distribution
+            </SectionLabel>
+            {dailyData.length === 0 ? (
+              <p className="mt-4 text-sm text-muted-foreground">
+                No daily data for this range.
+              </p>
+            ) : (
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart
+                  data={dailyData}
+                  margin={{ top: 10, right: 12, bottom: 5, left: -10 }}
+                >
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    className="stroke-border/40"
+                  />
+                  <XAxis
+                    dataKey="day"
+                    tick={{ fontSize: 11, fill: "var(--muted-foreground)" }}
+                    tickLine={false}
+                  />
+                  <YAxis
+                    tick={{ fontSize: 11, fill: "var(--muted-foreground)" }}
+                    tickLine={false}
+                  />
+                  <Tooltip
+                    contentStyle={CHART_TOOLTIP_STYLE}
+                    formatter={(v) => [`${fmtHours(Number(v))}h`, "Booked"]}
+                  />
+                  <Bar
+                    dataKey="bookedHours"
+                    fill={PRIMARY}
+                    radius={[4, 4, 0, 0]}
+                  />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
+          </Card>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// 7. SHARED vs EXCLUSIVE TAB — bookingApi.sharedVsExclusive(start, end)
+// ---------------------------------------------------------------------------
+
+function SharedVsExclusiveTab() {
+  const [start, setStart] = useState(defaultStart());
+  const [end, setEnd] = useState(defaultEnd());
+  const [params, setParams] = useState<RangeParams | null>(null);
+
+  const {
+    data: report,
+    loading,
+    error,
+    refetch,
+  } = useAsync<SharedVsExclusiveReport | undefined>(
+    () =>
+      params
+        ? bookingApi.sharedVsExclusive(params.start, params.end)
+        : Promise.resolve(undefined),
+    [params],
+  );
+
+  function handleGenerate() {
+    setParams({ start: toISOStart(start), end: toISOEnd(end) });
+  }
+
+  const pieData = React.useMemo(
+    () =>
+      report
+        ? [
+            {
+              name: "Shared",
+              value: report.sharedEquipment.count,
+              color: SHARED_COLOR,
+            },
+            {
+              name: "Exclusive",
+              value: report.exclusiveEquipment.count,
+              color: EXCLUSIVE_COLOR,
+            },
+          ]
+        : [],
+    [report],
+  );
+
+  const hasPieData = pieData.some((d) => d.value > 0);
+
+  return (
+    <div className="flex flex-col gap-4">
+      <DateRangeBar
+        start={start}
+        end={end}
+        onStartChange={setStart}
+        onEndChange={setEnd}
+        onGenerate={handleGenerate}
+        loading={loading}
+      />
+
+      {!params ? (
+        <EmptyState
+          icon={PieChartIcon}
+          title="Pick a range and generate"
+          description="Set a date range, then click Generate to compare shared vs. exclusive equipment usage."
+        />
+      ) : loading ? (
+        <ListSkeleton count={2} />
+      ) : error ? (
+        <ErrorCard message={error} onRetry={refetch} />
+      ) : report ? (
+        <div className="flex flex-col gap-4">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <StatTile
+              label="Shared equipment"
+              value={report.sharedEquipment.count}
+              hint={`${fmtHours(
+                report.sharedEquipment.totalBookedHours,
+              )}h · avg ${fmtPct(
+                report.sharedEquipment.avgUniqueUsersPerEquipment,
+              )} users`}
+              icon={Users}
+              accent="text-primary"
+            />
+            <StatTile
+              label="Exclusive equipment"
+              value={report.exclusiveEquipment.count}
+              hint={`${fmtHours(
+                report.exclusiveEquipment.totalBookedHours,
+              )}h · avg ${fmtPct(
+                report.exclusiveEquipment.avgUniqueUsersPerEquipment,
+              )} users`}
+              icon={Users}
+              accent="text-amber-600 dark:text-amber-400"
+            />
+          </div>
+
+          {hasPieData ? (
+            <Card className="rounded-2xl border-border/60 p-5 shadow-soft">
+              <SectionLabel icon={PieChartIcon}>Count split</SectionLabel>
+              <ResponsiveContainer width="100%" height={300}>
+                <PieChart>
+                  <Pie
+                    data={pieData}
+                    dataKey="value"
+                    nameKey="name"
+                    cx="50%"
+                    cy="50%"
+                    outerRadius={90}
+                    label
+                  >
+                    {pieData.map((d, i) => (
+                      <Cell key={i} fill={d.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    contentStyle={CHART_TOOLTIP_STYLE}
+                    formatter={(v) => [String(v), "Equipment"]}
+                  />
+                  <Legend />
+                </PieChart>
+              </ResponsiveContainer>
+            </Card>
+          ) : null}
+
+          <Card className="rounded-2xl border-border/60 p-5 shadow-soft">
+            <SectionLabel icon={Users}>
+              Per-equipment breakdown
+            </SectionLabel>
+            {report.perEquipment.length === 0 ? (
+              <p className="mt-4 text-sm text-muted-foreground">
+                No equipment usage in this range.
+              </p>
+            ) : (
+              <div className="mt-3 overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Equipment</TableHead>
+                      <TableHead>Type</TableHead>
+                      <TableHead className="text-right">
+                        Unique users
+                      </TableHead>
+                      <TableHead className="text-right">Booked (h)</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {report.perEquipment.map((r) => (
+                      <TableRow key={r.equipmentId}>
+                        <TableCell className="font-medium text-foreground">
+                          {r.equipmentName}
+                        </TableCell>
+                        <TableCell>
+                          {r.type === "SHARED" ? (
+                            <Badge className="bg-primary/15 text-primary">
+                              SHARED
+                            </Badge>
+                          ) : (
+                            <Badge className="bg-amber-500/15 text-amber-700 dark:text-amber-300">
+                              EXCLUSIVE
+                            </Badge>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-right tabular-nums">
+                          {r.uniqueUsers}
+                        </TableCell>
+                        <TableCell className="text-right tabular-nums">
+                          {fmtHours(r.bookedHours)}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </Card>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// 8. REAL-TIME TAB — bookingApi.realtimeUsage(), auto-refresh 30s
+// ---------------------------------------------------------------------------
+
+function RealtimeTab() {
+  const {
+    data,
+    loading,
+    error,
+    refetch,
+  } = useAsync<RealtimeUsage | undefined>(
+    () => bookingApi.realtimeUsage(),
+    [],
+  );
+
+  // Hold the latest refetch in a ref so the interval closure stays stable and
+  // the interval can be created once on mount.
+  const refetchRef = React.useRef(refetch);
+  refetchRef.current = refetch;
+
+  React.useEffect(() => {
+    const id = setInterval(() => refetchRef.current(), 30_000);
+    return () => clearInterval(id);
+  }, []);
+
+  return (
+    <div className="flex flex-col gap-4">
+      <Card className="rounded-2xl border-border/60 p-4 shadow-soft sm:p-5">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <span className="relative flex size-2.5">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-500 opacity-75" />
+              <span className="relative inline-flex size-2.5 rounded-full bg-emerald-500" />
+            </span>
+            <p className="text-sm font-medium text-foreground">
+              Live · auto-refreshes every 30s
+            </p>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={refetch}
+            className="gap-1.5"
+          >
+            <RefreshCw className="size-4" /> Refresh now
+          </Button>
+        </div>
+      </Card>
+
+      {loading && !data ? (
+        <ListSkeleton count={2} />
+      ) : error ? (
+        <ErrorCard message={error} onRetry={refetch} />
+      ) : data ? (
+        <>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <StatTile
+              label="In Use"
+              value={data.inUseCount}
+              icon={Activity}
+              accent="text-emerald-600 dark:text-emerald-400"
+            />
+            <StatTile
+              label="Available"
+              value={data.availableCount}
+              icon={Gauge}
+              accent="text-primary"
+            />
+            <StatTile
+              label="Booked"
+              value={data.bookedCount}
+              icon={CalendarRange}
+              accent="text-amber-600 dark:text-amber-400"
+            />
+            <StatTile
+              label="Maintenance"
+              value={data.maintenanceCount}
+              icon={Clock}
+              accent="text-rose-600 dark:text-rose-400"
+            />
+          </div>
+
+          <Card className="rounded-2xl border-border/60 p-5 shadow-soft">
+            <SectionLabel icon={Radio}>
+              In-use equipment ({data.inUseEquipment.length})
+            </SectionLabel>
+            {data.inUseEquipment.length === 0 ? (
+              <p className="mt-4 text-sm text-muted-foreground">
+                No equipment currently in use.
+              </p>
+            ) : (
+              <div className="mt-3 overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Equipment</TableHead>
+                      <TableHead>User</TableHead>
+                      <TableHead>Time window</TableHead>
+                      <TableHead className="text-right">Remaining</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {data.inUseEquipment.map((e) => (
+                      <TableRow key={e.bookingId}>
+                        <TableCell className="font-medium text-foreground">
+                          {e.equipmentName}
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {e.user.username}
+                        </TableCell>
+                        <TableCell className="tabular-nums text-muted-foreground">
+                          {fmtTime(e.startTime)}–{fmtTime(e.endTime)}
+                        </TableCell>
+                        <TableCell className="text-right tabular-nums font-medium text-amber-600 dark:text-amber-400">
+                          {e.remainingMinutes}m remaining
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </Card>
+        </>
+      ) : null}
     </div>
   );
 }

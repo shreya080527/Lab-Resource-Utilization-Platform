@@ -8,6 +8,8 @@ import {
   CalendarClock,
   Clock,
   Info,
+  Repeat,
+  Ban,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -24,6 +26,7 @@ import { useRouter } from "@/store/router";
 import { useAsync } from "@/hooks/use-async";
 import { equipmentApi } from "@/lib/api/equipmentApi";
 import { bookingApi, isWaitlistMessage } from "@/lib/api/bookingApi";
+import { toBackendDateTime } from "@/lib/constants";
 import {
   bookingStatusConfig,
   equipmentStatusConfig,
@@ -37,10 +40,18 @@ import { CardSkeleton } from "@/components/shared/Skeletons";
 
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
-import type { Booking, Equipment } from "@/types";
+import type { Booking, RecurrencePattern } from "@/types";
 
 // ---------------------------------------------------------------------------
 // helpers
@@ -79,6 +90,12 @@ const ACTIVE_STATUSES: Booking["status"][] = [
   "IN_PROGRESS",
 ];
 
+const RECURRENCE_OPTIONS: { value: RecurrencePattern; label: string }[] = [
+  { value: "DAILY", label: "Daily" },
+  { value: "WEEKLY", label: "Weekly" },
+  { value: "MONTHLY", label: "Monthly" },
+];
+
 // ---------------------------------------------------------------------------
 // Page
 // ---------------------------------------------------------------------------
@@ -94,28 +111,25 @@ export default function CreateBookingPage() {
     return Number.isFinite(n) && n > 0 ? n : null;
   }, [equipmentIdRaw]);
 
-  // Redirect to /equipment if no valid id (run once).
-  React.useEffect(() => {
-    if (equipmentId === null) {
-      navigate("/equipment", { replace: true });
-    }
-  }, [equipmentId, navigate]);
-
-  // Fetch equipment list and find the one we need (no GET-by-id endpoint).
-  const { data: equipmentList, loading, error } = useAsync(
-    () => equipmentApi.getAllEquipment(),
-    [],
+  // --- Equipment loading: dedicated getEquipment(id) endpoint ------------
+  const { data: equipment, loading, error } = useAsync(
+    async () => {
+      if (equipmentId === null) return undefined;
+      return equipmentApi.getEquipment(equipmentId);
+    },
+    [equipmentId],
   );
-
-  const equipment: Equipment | undefined = React.useMemo(() => {
-    if (!equipmentList || equipmentId === null) return undefined;
-    return equipmentList.find((e) => e.id === equipmentId);
-  }, [equipmentList, equipmentId]);
 
   // --- Form state ----------------------------------------------------------
   const [startValue, setStartValue] = React.useState("");
   const [endValue, setEndValue] = React.useState("");
   const [submitting, setSubmitting] = React.useState(false);
+
+  // Recurring state
+  const [recurring, setRecurring] = React.useState(false);
+  const [recurrencePattern, setRecurrencePattern] =
+    React.useState<RecurrencePattern>("WEEKLY");
+  const [recurrenceCount, setRecurrenceCount] = React.useState(4);
 
   const start = toDate(startValue);
   const end = toDate(endValue);
@@ -134,63 +148,119 @@ export default function CreateBookingPage() {
 
   const canSelectDates = !!equipment && isBookable(equipment.status);
 
-  // --- Conflict detection (client-side heads-up) ---------------------------
-  // The real backend's calendar endpoint is user-scoped (returns the current
-  // user's OWN bookings). This heads-up flags overlaps with the user's own
-  // active bookings on this equipment. Cross-user conflicts are caught by the
-  // backend at creation time and auto-waitlisted.
+  // --- Conflict detection (equipment-scoped calendar, cross-user) --------
+  // The dedicated /api/bookings/equipment-calendar endpoint returns ALL
+  // bookings on this equipment (regardless of owner). We fetch a ±1 day
+  // window around the proposed slot and surface any active-status overlap.
   const conflictRange = React.useMemo(() => {
-    if (!user || !equipmentId || !start || !end || dateError) return null;
+    if (equipmentId === null || !start || !end || dateError) return null;
     const padMs = 24 * 60 * 60 * 1000;
     return {
-      userId: user.id,
-      start: new Date(start.getTime() - padMs).toISOString(),
-      end: new Date(end.getTime() + padMs).toISOString(),
+      equipmentId,
+      start: toBackendDateTime(new Date(start.getTime() - padMs)),
+      end: toBackendDateTime(new Date(end.getTime() + padMs)),
     };
-  }, [user, equipmentId, start, end, dateError]);
+  }, [equipmentId, start, end, dateError]);
 
-  const { data: conflictBookings } = useAsync(
+  const { data: equipmentBookings } = useAsync(
     async () => {
       if (!conflictRange) return [] as Booking[];
-      const all = await bookingApi.calendar(conflictRange);
-      // Filter to this equipment (calendar returns all the user's bookings)
-      return all.filter((b) => b.equipment.id === equipmentId);
+      return bookingApi.equipmentCalendar(conflictRange);
     },
-    [conflictRange?.userId, conflictRange?.start, conflictRange?.end, equipmentId],
+    [conflictRange?.equipmentId, conflictRange?.start, conflictRange?.end],
   );
 
   const conflictingActive = React.useMemo(() => {
-    if (!start || !end || !conflictBookings) return [];
-    return conflictBookings.filter(
+    if (!start || !end || !equipmentBookings) return [];
+    return equipmentBookings.filter(
       (b) =>
-        b.equipment.id === equipmentId &&
         ACTIVE_STATUSES.includes(b.status) &&
         rangesOverlap(start, end, parseISO(b.startTime), parseISO(b.endTime)),
     );
-  }, [conflictBookings, start, end, equipmentId]);
+  }, [equipmentBookings, start, end]);
 
+  // Split conflicts into the user's OWN bookings vs OTHER users' bookings.
+  // The backend rejects same-user duplicate bookings ("You already have an
+  // active or pending booking"), but allows cross-user conflicts (those go to
+  // the waitlist). The UI must reflect this distinction.
+  const ownConflicts = React.useMemo(
+    () => conflictingActive.filter((b) => b.userId === user?.id),
+    [conflictingActive, user?.id],
+  );
+  const otherConflicts = React.useMemo(
+    () => conflictingActive.filter((b) => b.userId !== user?.id),
+    [conflictingActive, user?.id],
+  );
+
+  const hasOwnConflict = ownConflicts.length > 0;
+  const hasOtherConflict = otherConflicts.length > 0;
   const hasConflict = conflictingActive.length > 0;
 
   // --- Submit --------------------------------------------------------------
+  // Non-recurring create() may return either a Booking object (new shape)
+  // or a legacy plain-text message (e.g. waitlist confirmation). We branch
+  // on typeof to handle both defensively.
   const handleSubmit = async () => {
     if (!user || equipmentId === null || !equipment) return;
     if (!start || !end || dateError) return;
     if (!isBookable(equipment.status)) return;
 
+    const startTimeIso = toBackendDateTime(new Date(startValue));
+    const endTimeIso = toBackendDateTime(new Date(endValue));
+
     setSubmitting(true);
     try {
-      const msg = await bookingApi.create({
+      if (recurring) {
+        const resp = await bookingApi.createRecurring({
+          userId: user.id,
+          equipmentId,
+          startTime: startTimeIso,
+          endTime: endTimeIso,
+          recurrencePattern,
+          recurrenceCount,
+        });
+        toast.success(
+          `Created ${resp.totalBookingsCreated} booking${
+            resp.totalBookingsCreated === 1 ? "" : "s"
+          }, ${resp.totalWaitlisted} waitlisted`,
+        );
+        if (resp.waitlistedSlots.length > 0) {
+          const lines = resp.waitlistedSlots.map(
+            (s) =>
+              `${format(parseISO(s.startTime), "dd MMM, HH:mm")} – ${format(
+                parseISO(s.endTime),
+                "HH:mm",
+              )}`,
+          );
+          toast.warning(
+            `${resp.waitlistedSlots.length} slot${
+              resp.waitlistedSlots.length === 1 ? "" : "s"
+            } waitlisted:\n${lines.join("\n")}`,
+          );
+        }
+        navigate("/dashboard", { replace: true });
+        return;
+      }
+
+      const resp = await bookingApi.create({
         userId: user.id,
         equipmentId,
-        startTime: new Date(startValue).toISOString(),
-        endTime: new Date(endValue).toISOString(),
+        startTime: startTimeIso,
+        endTime: endTimeIso,
       });
-      if (isWaitlistMessage(msg)) {
-        toast(
-          "Added to waitlist — you'll be promoted when a slot frees up.",
-        );
+
+      if (typeof resp === "string") {
+        // Legacy plain-text response — sniff for waitlist vs success.
+        if (isWaitlistMessage(resp)) {
+          toast.warning(
+            "Slot conflicting with an active timeline — added to the waitlist.",
+          );
+        } else {
+          toast.success(resp || "Booking request submitted.");
+        }
       } else {
-        toast.success("Booking submitted — awaiting manager approval.");
+        // Booking object returned.
+        toast.success("Booking request submitted — awaiting manager approval.");
       }
       navigate("/dashboard", { replace: true });
     } catch (err: unknown) {
@@ -210,12 +280,32 @@ export default function CreateBookingPage() {
   };
 
   // -----------------------------------------------------------------------
-  // Render
+  // Render — guard states first
   // -----------------------------------------------------------------------
 
+  // No equipmentId (or unparseable) → EmptyState with back link.
   if (equipmentId === null) {
-    // effect will redirect; minimal placeholder
-    return null;
+    return (
+      <div className="flex flex-col gap-6">
+        <PageHeader title="Request a booking" />
+        <EmptyState
+          icon={Microscope}
+          title="No equipment selected"
+          description="Pick a piece of equipment from the catalog to start a booking."
+          action={
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => navigate("/equipment")}
+              className="gap-1.5"
+            >
+              <ArrowLeft className="size-4" />
+              Browse equipment
+            </Button>
+          }
+        />
+      </div>
+    );
   }
 
   if (loading) {
@@ -252,21 +342,23 @@ export default function CreateBookingPage() {
   }
 
   if (!equipment) {
+    // Loaded but missing (e.g. deleted between catalog click and this page).
     return (
       <div className="flex flex-col gap-6">
         <PageHeader title="Request a booking" />
         <EmptyState
-          icon={Microscope}
+          icon={TriangleAlert}
           title="Equipment not found"
-          description="This equipment may have been removed. Pick another item from the catalogue."
+          description="This equipment may have been removed. Please pick another from the catalog."
           action={
             <Button
+              variant="outline"
               size="sm"
               onClick={() => navigate("/equipment")}
               className="gap-1.5"
             >
               <ArrowLeft className="size-4" />
-              Browse equipment
+              Back to equipment
             </Button>
           }
         />
@@ -280,7 +372,9 @@ export default function CreateBookingPage() {
     unavailable ||
     !start ||
     !end ||
-    !!dateError;
+    !!dateError ||
+    hasOwnConflict ||
+    (recurring && (recurrenceCount < 1 || recurrenceCount > 52));
 
   return (
     <div className="flex flex-col gap-6">
@@ -320,17 +414,23 @@ export default function CreateBookingPage() {
           <p className="text-sm text-muted-foreground">
             {equipment.description || "No description provided."}
           </p>
-          <div className="grid grid-cols-2 gap-3 border-t border-border/60 pt-3 text-xs">
+          <div className="grid grid-cols-1 gap-3 border-t border-border/60 pt-3 text-xs sm:grid-cols-3">
             <div>
               <p className="text-muted-foreground">Institution</p>
-              <p className="mt-0.5 font-medium text-foreground">
-                {equipment.institution}
+              <p className="mt-0.5 truncate font-medium text-foreground">
+                {equipment.institution?.name || "—"}
+              </p>
+            </div>
+            <div>
+              <p className="text-muted-foreground">Department</p>
+              <p className="mt-0.5 truncate font-medium text-foreground">
+                {equipment.department?.name || "—"}
               </p>
             </div>
             <div>
               <p className="text-muted-foreground">Added by</p>
-              <p className="mt-0.5 font-medium text-foreground">
-                {equipment.addedBy}
+              <p className="mt-0.5 truncate font-medium text-foreground">
+                {equipment.addedByUsername || "—"}
               </p>
             </div>
           </div>
@@ -409,8 +509,126 @@ export default function CreateBookingPage() {
             </span>
           </div>
 
-          {/* Conflict heads-up */}
-          {hasConflict && start && end && !dateError && (
+          {/* Recurrence */}
+          <div className="flex flex-col gap-3 rounded-xl border border-border/60 bg-muted/30 px-4 py-3">
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="booking-recurring"
+                checked={recurring}
+                onCheckedChange={(v) => setRecurring(v === true)}
+                disabled={submitting || !canSelectDates}
+              />
+              <Label
+                htmlFor="booking-recurring"
+                className="flex cursor-pointer items-center gap-1.5 text-sm font-medium"
+              >
+                <Repeat className="size-3.5 text-primary/70" />
+                Repeat this booking
+              </Label>
+            </div>
+            {recurring && (
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div className="flex flex-col gap-1.5">
+                  <Label
+                    htmlFor="booking-recurrence-pattern"
+                    className="text-xs text-muted-foreground"
+                  >
+                    Frequency
+                  </Label>
+                  <Select
+                    value={recurrencePattern}
+                    onValueChange={(v) =>
+                      setRecurrencePattern(v as RecurrencePattern)
+                    }
+                  >
+                    <SelectTrigger
+                      id="booking-recurrence-pattern"
+                      className="w-full"
+                      disabled={submitting}
+                    >
+                      <SelectValue placeholder="Select frequency" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {RECURRENCE_OPTIONS.map((opt) => (
+                        <SelectItem key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <Label
+                    htmlFor="booking-recurrence-count"
+                    className="text-xs text-muted-foreground"
+                  >
+                    Recurrences (1–52)
+                  </Label>
+                  <Input
+                    id="booking-recurrence-count"
+                    type="number"
+                    min={1}
+                    max={52}
+                    value={recurrenceCount}
+                    onChange={(e) => {
+                      const n = parseInt(e.target.value, 10);
+                      if (Number.isFinite(n)) {
+                        setRecurrenceCount(
+                          Math.min(52, Math.max(1, Math.floor(n))),
+                        );
+                      } else if (e.target.value === "") {
+                        setRecurrenceCount(1);
+                      }
+                    }}
+                    disabled={submitting}
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Own-booking conflict — BLOCKS submission */}
+          {hasOwnConflict && start && end && !dateError && (
+            <div
+              role="alert"
+              className={cn(
+                "flex items-start gap-3 rounded-xl border px-4 py-3 text-sm",
+                "bg-rose-500/10 text-rose-700 dark:text-rose-300 ring-1 ring-rose-500/25",
+              )}
+            >
+              <Ban className="mt-0.5 size-4 shrink-0" />
+              <div>
+                <p className="font-medium">
+                  You already have an active booking for this equipment at
+                  this time.
+                </p>
+                <p className="mt-0.5 text-xs opacity-90">
+                  You can&apos;t book the same equipment twice. Cancel your
+                  existing booking first, or pick a different time slot.
+                </p>
+                <ul className="mt-2 flex flex-col gap-1 text-xs">
+                  {ownConflicts.slice(0, 3).map((b) => (
+                    <li key={b.id} className="flex items-center gap-1.5">
+                      <span
+                        className="size-1.5 rounded-full"
+                        style={{
+                          backgroundColor: bookingStatusConfig(b.status).color,
+                        }}
+                      />
+                      <span>
+                        {format(parseISO(b.startTime), "dd MMM, HH:mm")} –{" "}
+                        {format(parseISO(b.endTime), "HH:mm")} ·{" "}
+                        {bookingStatusConfig(b.status).label}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          )}
+
+          {/* Other-user conflict — warns about waitlist, but allows submission */}
+          {hasOtherConflict && !hasOwnConflict && start && end && !dateError && (
             <div
               role="status"
               className={cn(
@@ -421,29 +639,32 @@ export default function CreateBookingPage() {
               <Info className="mt-0.5 size-4 shrink-0" />
               <div>
                 <p className="font-medium">
-                  This slot conflicts with an existing booking.
+                  This slot is already booked by another researcher.
                 </p>
                 <p className="mt-0.5 text-xs opacity-90">
-                  Submitting will auto-add it to the waitlist — you’ll be
-                  promoted when a slot frees up.
+                  Submitting will auto-add your request to the waitlist —
+                  you&apos;ll be promoted when a slot frees up.
                 </p>
                 <ul className="mt-2 flex flex-col gap-1 text-xs">
-                  {conflictingActive.slice(0, 3).map((b) => (
+                  {otherConflicts.slice(0, 3).map((b) => (
                     <li key={b.id} className="flex items-center gap-1.5">
                       <span
                         className="size-1.5 rounded-full"
-                        style={{ backgroundColor: bookingStatusConfig(b.status).color }}
+                        style={{
+                          backgroundColor: bookingStatusConfig(b.status).color,
+                        }}
                       />
                       <span>
                         {format(parseISO(b.startTime), "dd MMM, HH:mm")} –{" "}
                         {format(parseISO(b.endTime), "HH:mm")} ·{" "}
                         {bookingStatusConfig(b.status).label}
+                        {b.username ? ` · ${b.username}` : ""}
                       </span>
                     </li>
                   ))}
-                  {conflictingActive.length > 3 && (
+                  {otherConflicts.length > 3 && (
                     <li className="text-muted-foreground">
-                      +{conflictingActive.length - 3} more
+                      +{otherConflicts.length - 3} more
                     </li>
                   )}
                 </ul>
@@ -466,7 +687,11 @@ export default function CreateBookingPage() {
               className="gap-1.5"
             >
               {submitting && <Loader2 className="size-4 animate-spin" />}
-              {submitting ? "Submitting…" : "Request booking"}
+              {submitting
+                ? "Submitting…"
+                : recurring
+                  ? "Create recurring booking"
+                  : "Request booking"}
             </Button>
           </div>
         </Card>

@@ -29,7 +29,10 @@ import EquipmentFormPage from "@/features/manager/EquipmentFormPage";
 import ManagerBookingsPage from "@/features/manager/ManagerBookingsPage";
 import ManagerCalendarPage from "@/features/manager/ManagerCalendarPage";
 import UtilizationPage from "@/features/manager/UtilizationPage";
-
+import ManagerWaitlistPage from "@/features/manager/ManagerWaitlistPage";
+import CalibrationsDuePage from "@/features/manager/CalibrationsDuePage";
+import BookingAuditPage from "@/features/manager/BookingAuditPage";
+import AdminInstitutionsPage from "@/features/admin/AdminInstitutionsPage";
 import BrowsePlaceholder from "@/features/browse/BrowsePlaceholder";
 
 // ---------------------------------------------------------------------------
@@ -228,7 +231,28 @@ export function AppRoot() {
           path="/manager/utilization"
           element={withRoleShell(["LAB_MANAGER"], <UtilizationPage />)}
         />
-
+        <Route
+          path="/manager/waitlist"
+          element={withRoleShell(["LAB_MANAGER"], <ManagerWaitlistPage />)}
+        />
+        <Route
+          path="/manager/calibrations"
+          element={withRoleShell(["LAB_MANAGER"], <CalibrationsDuePage />)}
+        />
+        <Route
+          path="/manager/audit"
+          element={withRoleShell(["LAB_MANAGER"], <BookingAuditPage />)}
+        />
+        {/* Admin */}
+        <Route
+          path="/admin/institutions"
+          element={
+            withRoleShell(
+              ["SYSTEM_ADMIN", "INSTITUTION_ADMIN"],
+              <AdminInstitutionsPage />,
+            )
+          }
+        />
         {/* Other roles — browse-only */}
         <Route
           path="/browse"

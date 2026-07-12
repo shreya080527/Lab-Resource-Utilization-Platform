@@ -1,9 +1,10 @@
 
 import * as React from "react";
-import { Wrench } from "lucide-react";
+import { Building2, Wrench } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { CategoryIcon } from "@/components/shared/CategoryIcon";
 import { isBookable } from "@/lib/status";
@@ -23,6 +24,13 @@ export function EquipmentCard({
   className?: string;
 }) {
   const bookable = isBookable(equipment.status);
+  const tags = equipment.tags ?? [];
+  const visibleTags = tags.slice(0, 3);
+  const extraTagCount = Math.max(0, tags.length - visibleTags.length);
+  const institutionName = equipment.institution?.name ?? "—";
+  const departmentName = equipment.department?.name ?? "—";
+  const addedByName = equipment.addedByUsername ?? "—";
+
   return (
     <Card
       className={cn(
@@ -51,9 +59,40 @@ export function EquipmentCard({
         <p className="line-clamp-2 text-sm text-muted-foreground">
           {equipment.description || "No description provided."}
         </p>
-        <div className="mt-auto flex items-center gap-1.5 pt-2 text-xs text-muted-foreground">
-          <Wrench className="size-3" />
-          {equipment.institution}
+
+        {tags.length > 0 && (
+          <div className="flex flex-wrap items-center gap-1.5">
+            {visibleTags.map((t) => (
+              <Badge
+                key={t.id}
+                variant="secondary"
+                className="rounded-full px-2 py-0.5 text-[11px] font-medium"
+              >
+                {t.name}
+              </Badge>
+            ))}
+            {extraTagCount > 0 && (
+              <Badge
+                variant="outline"
+                className="rounded-full px-2 py-0.5 text-[11px] font-medium text-muted-foreground"
+              >
+                +{extraTagCount}
+              </Badge>
+            )}
+          </div>
+        )}
+
+        <div className="mt-auto space-y-1 pt-2 text-xs text-muted-foreground">
+          <div className="flex items-center gap-1.5">
+            <Building2 className="size-3" />
+            <span className="truncate">
+              {institutionName} · {departmentName}
+            </span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <Wrench className="size-3" />
+            <span className="truncate">Added by {addedByName}</span>
+          </div>
         </div>
       </button>
       <div className="flex items-center gap-2 border-t border-border/60 bg-muted/20 px-5 py-3">

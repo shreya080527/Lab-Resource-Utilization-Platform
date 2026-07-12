@@ -10,9 +10,14 @@ import {
   FlaskConical,
   Menu,
   Search,
+  ListOrdered,
+  ClipboardCheck,
+  History,
+  Building2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import {
   Sheet,
   SheetContent,
@@ -32,14 +37,18 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { ThemeToggle } from "@/components/shared/ThemeToggle";
 import { useRouter } from "@/store/router";
 import { useAuthStore } from "@/store/authStore";
+import { useAsync } from "@/hooks/use-async";
+import { dashboardApi } from "@/lib/api/bookingApi";
 import { ROLE_PERMISSIONS } from "@/config/rolePermissions";
-import type { Role } from "@/types";
+import type { DashboardStats, Role } from "@/types";
 
 interface NavItem {
   label: string;
   to: string;
   icon: React.ComponentType<{ className?: string }>;
   match: string[]; // path prefixes
+  /** Optional numeric badge — shown when > 0. */
+  badge?: number;
 }
 
 function navFor(role: Role): NavItem[] {
@@ -56,6 +65,18 @@ function navFor(role: Role): NavItem[] {
         { label: "Bookings", to: "/manager/bookings", icon: ClipboardList, match: ["/manager/bookings"] },
         { label: "Calendar", to: "/manager/calendar", icon: CalendarDays, match: ["/manager/calendar"] },
         { label: "Utilization", to: "/manager/utilization", icon: BarChart3, match: ["/manager/utilization"] },
+        { label: "Waitlist", to: "/manager/waitlist", icon: ListOrdered, match: ["/manager/waitlist"] },
+        // Calibrations Due badge count is injected by the AppShell component
+        // (sourced from dashboardApi.stats().calibrationsDueIn30Days) — defaults to 0.
+        { label: "Calibrations Due", to: "/manager/calibrations", icon: ClipboardCheck, match: ["/manager/calibrations"], badge: 0 },
+        { label: "Audit Trail", to: "/manager/audit", icon: History, match: ["/manager/audit"] },
+      ];
+    case "SYSTEM_ADMIN":
+    case "INSTITUTION_ADMIN":
+      return [
+        { label: "Institutions", to: "/admin/institutions", icon: Building2, match: ["/admin/institutions"] },
+        { label: "Browse", to: "/browse", icon: Search, match: ["/browse"] },
+        { label: "Equipment", to: "/equipment", icon: Microscope, match: ["/equipment"] },
       ];
     default:
       return [
@@ -72,7 +93,33 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [mobileOpen, setMobileOpen] = React.useState(false);
 
   const role = user?.role ?? "RESEARCHER";
-  const items = navFor(role);
+
+  // Fetch dashboard stats ONLY for LAB_MANAGER (needed for the Calibrations
+  // Due badge count). Non-managers resolve `null` and skip the fetch entirely
+  // — the useAsync fn returns null synchronously without firing a request.
+  const statsAsync = useAsync<DashboardStats | null>(
+    () =>
+      role === "LAB_MANAGER"
+        ? dashboardApi.stats()
+        : Promise.resolve(null),
+    [role],
+  );
+  const calibrationsDueCount =
+    role === "LAB_MANAGER"
+      ? statsAsync.data?.calibrationsDueIn30Days ?? 0
+      : 0;
+
+  // Inject the live calibrations-due count into the matching nav item.
+  const baseItems = navFor(role);
+  const items: NavItem[] =
+    role === "LAB_MANAGER"
+      ? baseItems.map((it) =>
+          it.to === "/manager/calibrations"
+            ? { ...it, badge: calibrationsDueCount }
+            : it,
+        )
+      : baseItems;
+
   const perm = ROLE_PERMISSIONS[role];
 
   const isActive = (it: NavItem) =>
@@ -99,6 +146,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         {items.map((it) => {
           const Icon = it.icon;
           const active = isActive(it);
+          const showBadge = typeof it.badge === "number" && it.badge > 0;
           return (
             <button
               key={it.to}
@@ -114,7 +162,20 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               )}
             >
               <Icon className="size-[18px]" />
-              {it.label}
+              <span className="flex-1 text-left">{it.label}</span>
+              {showBadge && (
+                <Badge
+                  variant={active ? "secondary" : "default"}
+                  className={cn(
+                    "h-5 min-w-5 shrink-0 justify-center rounded-full px-1.5 text-[11px] font-semibold",
+                    active
+                      ? "bg-primary-foreground/20 text-primary-foreground"
+                      : "bg-amber-500/15 text-amber-700 ring-1 ring-amber-500/30 dark:text-amber-300",
+                  )}
+                >
+                  {it.badge}
+                </Badge>
+              )}
             </button>
           );
         })}
@@ -238,7 +299,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 {user?.email}
               </span>
               <span className="mt-1 text-[11px] font-normal text-muted-foreground">
-                {perm.label} · {user?.department}
+                {perm.label} · {user?.department?.name ?? "—"}
               </span>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />

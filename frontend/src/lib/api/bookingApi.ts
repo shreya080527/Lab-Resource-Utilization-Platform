@@ -1,18 +1,21 @@
-import { api, unwrap } from "@/lib/api/client";
+import { api, unwrap } from "./client";
 import type {
   Booking,
   MyDashboard,
   UtilizationReport,
+  BookingAudit,
+  WaitlistEntry,
+  RecurringBookingRequest,
+  RecurringBookingResponse,
+  ScopeUtilizationReport,
+  HeatmapReport,
+  IdleReport,
+  PeakReport,
+  BenchmarkReport,
+  SharedVsExclusiveReport,
+  RealtimeUsage,
+  DashboardStats,
 } from "@/types";
-
-// IMPORTANT: the booking lifecycle endpoints return PLAIN TEXT, not JSON.
-// Axios leaves text/plain bodies as strings, so these are typed as `string`.
-// Callers must not treat the return value as a Booking object — refetch the
-// relevant list to refresh state.
-//
-// NOTE: the generic status-update endpoint (POST /{id}/status) is COMMENTED
-// OUT in the real backend — it does not exist. The lifecycle actions
-// (accept/reject/cancel/complete/start) are the only way to change status.
 
 export interface CreateBookingPayload {
   userId: number;
@@ -20,69 +23,120 @@ export interface CreateBookingPayload {
   startTime: string;
   endTime: string;
 }
-
-// The real backend's calendar endpoint (BookingController.getCalendar) REQUIRES
-// `userId` as a @RequestParam and does NOT support `equipmentId` — the query is
-// `WHERE b.user.id = :userId` (user-scoped, not equipment-scoped). RESEARCHER only.
 export interface CalendarParams {
+  equipmentId: number;
+  start: string;
+  end: string;
+}
+export interface UserCalendarParams {
   userId: number;
   start: string;
   end: string;
 }
-
 export interface UtilizationParams {
   equipmentId: number;
   start: string;
   end: string;
 }
 
-// The create-booking endpoint returns a plain-text message. Two distinct
-// outcomes share HTTP 200 in the documented contract:
-//   • success   -> "Booking request submitted successfully. Awaiting Manager approval."
-//   • waitlist  -> "Slot conflicting with an active timeline. Auto-added to the Waitlist."
-// We match on message content (defensive) rather than assuming distinct codes.
 export function isWaitlistMessage(msg: string): boolean {
   return /waitlist/i.test(msg);
 }
 
 export const bookingApi = {
+  // ─── Create ───
   create: (payload: CreateBookingPayload) =>
-    api.post<string>("/api/bookings/create", payload).then(unwrap),
+    api.post<Booking>("/api/bookings/create", payload).then(unwrap),
+  createRecurring: (payload: RecurringBookingRequest) =>
+    api.post<RecurringBookingResponse>("/api/bookings/create-recurring", payload).then(unwrap),
 
-  // User-scoped calendar (RESEARCHER only, requires userId, returns the user's OWN bookings)
-  calendar: (params: CalendarParams) =>
-    api
-      .get<Booking[]>("/api/bookings/calendar", { params })
-      .then(unwrap),
+  // ─── Calendars ───
+  userCalendar: (params: UserCalendarParams) =>
+    api.get<Booking[]>("/api/bookings/calendar", { params }).then(unwrap),
+  equipmentCalendar: (params: CalendarParams) =>
+    api.get<Booking[]>("/api/bookings/equipment-calendar", { params }).then(unwrap),
 
+  // ─── Dashboard / Lists ───
   myDashboard: (userId: number) =>
     api.get<MyDashboard>(`/api/bookings/my-dashboard/${userId}`).then(unwrap),
-
-  // All bookings system-wide. LAB_MANAGER only.
   allBookings: () => api.get<Booking[]>("/api/bookings/all").then(unwrap),
 
-  // ── Lifecycle actions (plain text responses) ──
-  accept: (bookingId: number) =>
-    api.put<string>(`/api/bookings/${bookingId}/accept`).then(unwrap),
+  // ─── Lifecycle ───
+  accept: (id: number) => api.put<Booking>(`/api/bookings/${id}/accept`).then(unwrap),
+  reject: (id: number) => api.put<Booking>(`/api/bookings/${id}/reject`).then(unwrap),
+  start: (id: number) => api.put<Booking>(`/api/bookings/${id}/start`).then(unwrap),
+  cancel: (id: number) => api.put<Booking>(`/api/bookings/${id}/cancel`).then(unwrap),
+  complete: (id: number) => api.put<Booking>(`/api/bookings/${id}/complete`).then(unwrap),
+  noShow: (id: number) => api.put<Booking>(`/api/bookings/${id}/no-show`).then(unwrap),
 
-  reject: (bookingId: number) =>
-    api.put<string>(`/api/bookings/${bookingId}/reject`).then(unwrap),
+  // ─── Audit ───
+  bookingAudit: (bookingId: number) =>
+    api.get<BookingAudit[]>(`/api/bookings/${bookingId}/audit`).then(unwrap),
+  equipmentAudit: (equipmentId: number) =>
+    api.get<BookingAudit[]>(`/api/bookings/equipment-audit/${equipmentId}`).then(unwrap),
 
-  start: (bookingId: number) =>
-    api.put<string>(`/api/bookings/${bookingId}/start`).then(unwrap),
-
-  cancel: (bookingId: number) =>
-    api.put<string>(`/api/bookings/${bookingId}/cancel`).then(unwrap),
-
-  complete: (bookingId: number) =>
-    api.put<string>(`/api/bookings/${bookingId}/complete`).then(unwrap),
-
-  // ── Per-equipment utilization (LAB_MANAGER) ──
-  // The ONLY utilization endpoint the real backend has. Department/institution/
-  // heatmap/idle are computed CLIENT-SIDE in the UtilizationPage from this +
-  // the equipment list + allBookings.
+  // ─── Utilization ───
   utilization: (params: UtilizationParams) =>
+    api.get<UtilizationReport>("/api/bookings/utilization", { params }).then(unwrap),
+  realtimeUsage: () =>
+    api.get<RealtimeUsage>("/api/bookings/utilization/realtime").then(unwrap),
+  departmentUtilization: (departmentId: number, start: string, end: string) =>
     api
-      .get<UtilizationReport>("/api/bookings/utilization", { params })
+      .get<ScopeUtilizationReport>("/api/bookings/utilization/department", {
+        params: { departmentId, start, end },
+      })
       .then(unwrap),
+  institutionUtilization: (institutionId: number, start: string, end: string) =>
+    api
+      .get<ScopeUtilizationReport>("/api/bookings/utilization/institution", {
+        params: { institutionId, start, end },
+      })
+      .then(unwrap),
+  heatmap: (equipmentId: number, start: string, end: string) =>
+    api
+      .get<HeatmapReport>("/api/bookings/utilization/heatmap", {
+        params: { equipmentId, start, end },
+      })
+      .then(unwrap),
+  idleReport: (start: string, end: string, thresholdHours = 500) =>
+    api
+      .get<IdleReport>("/api/bookings/utilization/idle", {
+        params: { start, end, thresholdHours },
+      })
+      .then(unwrap),
+  peakAnalysis: (start: string, end: string) =>
+    api.get<PeakReport>("/api/bookings/utilization/peak", { params: { start, end } }).then(unwrap),
+  benchmark: (equipmentId: number, start: string, end: string) =>
+    api
+      .get<BenchmarkReport>("/api/bookings/utilization/benchmark", {
+        params: { equipmentId, start, end },
+      })
+      .then(unwrap),
+  sharedVsExclusive: (start: string, end: string) =>
+    api
+      .get<SharedVsExclusiveReport>("/api/bookings/utilization/shared-vs-exclusive", {
+        params: { start, end },
+      })
+      .then(unwrap),
+};
+
+// ─── Waitlist management ───
+export const waitlistApi = {
+  listAll: () => api.get<WaitlistEntry[]>("/api/waitlist").then(unwrap),
+  byEquipment: (equipmentId: number) =>
+    api.get<WaitlistEntry[]>(`/api/waitlist/equipment/${equipmentId}`).then(unwrap),
+  promote: (equipmentId: number, waitlistId?: number) =>
+    api
+      .post<{ promoted: boolean; message: string }>(
+        `/api/waitlist/equipment/${equipmentId}/promote`,
+        waitlistId ? { waitlistId } : {},
+      )
+      .then(unwrap),
+  remove: (waitlistId: number) =>
+    api.delete<{ message: string }>(`/api/waitlist/${waitlistId}`).then(unwrap),
+};
+
+// ─── Dashboard stats ───
+export const dashboardApi = {
+  stats: () => api.get<DashboardStats>("/api/dashboard/stats").then(unwrap),
 };

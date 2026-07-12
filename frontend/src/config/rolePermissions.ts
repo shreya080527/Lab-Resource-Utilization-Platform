@@ -2,9 +2,7 @@ import type { Role } from "@/types";
 
 // ---------------------------------------------------------------------------
 // Single source of truth for what each role can do.
-// Route guards and UI branch off this map instead of scattered conditionals,
-// so plugging in real permissions for the four undocumented roles later is
-// a one-file change.
+// Route guards and UI branch off this map instead of scattered conditionals.
 // ---------------------------------------------------------------------------
 
 export type RouteKey =
@@ -19,11 +17,15 @@ export type RouteKey =
   | "managerBookings"
   | "managerCalendar"
   | "managerUtilization"
+  | "managerWaitlist"
+  | "managerCalibrations"
+  | "managerAudit"
+  | "adminInstitutions"
   | "browse";
 
 export interface RolePermission {
   /** Full featured experience label, or null for browse-only placeholder */
-  experience: "researcher" | "manager" | "browse" | null;
+  experience: "researcher" | "manager" | "browse" | "admin" | null;
   /** Landing route after login (within the in-app router) */
   landing: string;
   /** Routes this role is allowed to visit */
@@ -62,6 +64,9 @@ export const ROLE_PERMISSIONS: Record<Role, RolePermission> = {
       "managerBookings",
       "managerCalendar",
       "managerUtilization",
+      "managerWaitlist",
+      "managerCalibrations",
+      "managerAudit",
       "equipment",
       "equipmentDetail",
     ],
@@ -92,9 +97,9 @@ export const ROLE_PERMISSIONS: Record<Role, RolePermission> = {
     label: "Department Head",
   },
   INSTITUTION_ADMIN: {
-    experience: "browse",
-    landing: "/browse",
-    routes: ["browse", "equipment", "equipmentDetail"],
+    experience: "admin",
+    landing: "/admin/institutions",
+    routes: ["adminInstitutions", "browse", "equipment", "equipmentDetail"],
     canBook: false,
     canManageEquipment: false,
     canManageBookings: false,
@@ -102,9 +107,9 @@ export const ROLE_PERMISSIONS: Record<Role, RolePermission> = {
     label: "Institution Admin",
   },
   SYSTEM_ADMIN: {
-    experience: "browse",
-    landing: "/browse",
-    routes: ["browse", "equipment", "equipmentDetail"],
+    experience: "admin",
+    landing: "/admin/institutions",
+    routes: ["adminInstitutions", "browse", "equipment", "equipmentDetail"],
     canBook: false,
     canManageEquipment: false,
     canManageBookings: false,

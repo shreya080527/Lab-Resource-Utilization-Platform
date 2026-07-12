@@ -54,7 +54,7 @@ public class BookingService {
 
         if (bookingRepo.existsOverlappingActiveBookingsForUpdate(equipmentId, start, end, activeStatuses)) {
             addToWaitlist(user, equipment, start, end);
-            throw new IllegalStateException("Slot conflicting with an active timeline. Auto-added to the Waitlist.");
+            return null;  // ← transaction commits normally → waitlist entry is saved
         }
 
         Booking booking = Booking.builder()
@@ -109,8 +109,8 @@ public class BookingService {
                 children.add(child);
             }
         }
-        return new RecurringBookingResponse(parent.getId(), children.size(), waitlisted.size(), children, waitlisted);
-    }
+        List<BookingResponse> bookingResponses = children.stream().map(BookingResponse::from).toList();
+        return new RecurringBookingResponse(parent.getId(), bookingResponses.size(), waitlisted.size(), bookingResponses, waitlisted);    }
 
     private LocalDateTime advanceByPattern(LocalDateTime dt, String pattern) {
         return switch (pattern.toUpperCase()) {
@@ -375,5 +375,17 @@ public class BookingService {
             }
             default -> {}
         }
+
+    }
+    @Transactional(readOnly = true)
+    public ResearcherDashboardDto getResearcherDashboard(Long userId) {
+        if (!userRepo.existsById(userId)) {
+            throw new RuntimeException("User not found: " + userId);
+        }
+        List<BookingResponse> bookings = bookingRepo.findByUserIdOrderByStartTimeAsc(userId)
+                .stream().map(BookingResponse::from).toList();
+        List<WaitlistResponse> waitlist = waitlistRepo.findByUserId(userId)
+                .stream().map(WaitlistResponse::from).toList();
+        return new ResearcherDashboardDto(bookings, waitlist);
     }
 }

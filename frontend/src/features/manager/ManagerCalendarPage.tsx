@@ -1,12 +1,25 @@
 
 import * as React from "react";
-import { RefreshCw, CalendarDays, Filter, Layers } from "lucide-react";
+import {
+  RefreshCw,
+  CalendarDays,
+  Filter,
+  Microscope,
+} from "lucide-react";
 import { toast } from "sonner";
+import {
+  startOfWeek,
+  endOfWeek,
+  endOfDay,
+  format,
+} from "date-fns";
 
 import { useAsync } from "@/hooks/use-async";
 import { bookingApi } from "@/lib/api/bookingApi";
 import { equipmentApi } from "@/lib/api/equipmentApi";
+import { toBackendDateTime } from "@/lib/constants";
 import { bookingStatusConfig } from "@/lib/status";
+import { cn } from "@/lib/utils";
 
 import { PageHeader } from "@/components/shared/PageHeader";
 import { EmptyState } from "@/components/shared/EmptyState";
@@ -26,12 +39,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-import type { Booking, BookingStatus } from "@/types";
-
-// ---------------------------------------------------------------------------
-
-const EQUIP_ALL = "ALL";
-const CAT_ALL = "ALL";
+import type { Booking, BookingStatus, Equipment } from "@/types";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -42,8 +50,8 @@ function toCalendarEvent(b: Booking): CalendarEventItem {
     id: b.id,
     start: b.startTime,
     end: b.endTime,
-    title: b.equipment.equipmentName,
-    subtitle: b.user.username,
+    title: b.equipmentName,
+    subtitle: b.username,
     status: b.status as BookingStatus,
   };
 }
@@ -53,53 +61,79 @@ function toCalendarEvent(b: Booking): CalendarEventItem {
 // ---------------------------------------------------------------------------
 
 export default function ManagerCalendarPage() {
-  // --- filters state ---
-  const [equipFilter, setEquipFilter] = React.useState<string>(EQUIP_ALL);
-  const [catFilter, setCatFilter] = React.useState<string>(CAT_ALL);
-
-  // --- data: equipment list (for filter dropdown) ---
+  // --- equipment list (for the selector) ---
   const {
     data: equipment,
     loading: equipLoading,
     error: equipError,
     refetch: refetchEquip,
-  } = useAsync(() => equipmentApi.getAllEquipment(), []);
+  } = useAsync<Equipment[]>(() => equipmentApi.getAllEquipment(), []);
 
-  // --- data: all bookings in a 90-day window ---
+  // --- selected equipment + cursor ---
+  const [equipmentId, setEquipmentId] = React.useState<number | null>(null);
+  const [cursor, setCursor] = React.useState<Date>(() => new Date());
+
+  // Default to the first equipment once the list loads.
+  React.useEffect(() => {
+    if (equipmentId === null && equipment && equipment.length > 0) {
+      setEquipmentId(equipment[0].id);
+    }
+  }, [equipment, equipmentId]);
+
+  // --- week window (Mon–Sun) derived from cursor, as ISO strings ---
+  const startIso = React.useMemo(
+    () => toBackendDateTime(startOfWeek(cursor, { weekStartsOn: 1 })),
+    [cursor],
+  );
+  const endIso = React.useMemo(
+    () => toBackendDateTime(endOfDay(endOfWeek(cursor, { weekStartsOn: 1 }))),
+    [cursor],
+  );
+
+  const windowStart = React.useMemo(
+    () => startOfWeek(cursor, { weekStartsOn: 1 }),
+    [cursor],
+  );
+  const windowEnd = React.useMemo(
+    () => endOfDay(endOfWeek(cursor, { weekStartsOn: 1 })),
+    [cursor],
+  );
+
+  // --- calendar data via /api/bookings/equipment-calendar ---
+  // Refetches automatically when equipmentId or week window changes.
   const {
-    data: bookings,
-    loading,
-    error,
-    refetch,
-  } = useAsync(() => bookingApi.allBookings(), []);
+    data: rawBookings,
+    loading: bookingsLoading,
+    error: bookingsError,
+    refetch: refetchBookings,
+  } = useAsync<Booking[]>(
+    () =>
+      equipmentId === null
+        ? Promise.resolve([] as Booking[])
+        : bookingApi.equipmentCalendar({
+            equipmentId,
+            start: startIso,
+            end: endIso,
+          }),
+    [equipmentId, startIso, endIso],
+  );
 
-  // --- derived filter option lists ---
-  const categories = React.useMemo(() => {
-    const set = new Set<string>();
-    for (const e of equipment ?? []) set.add(e.category);
-    return Array.from(set).sort((a, b) => a.localeCompare(b));
-  }, [equipment]);
-
-  // --- client-side filtering before passing events to CalendarView ---
-  const events: CalendarEventItem[] = React.useMemo(() => {
-    const all = bookings ?? [];
-    return all
-      .filter((b) =>
-        equipFilter === EQUIP_ALL ? true : b.equipment.equipmentName === equipFilter,
-      )
-      .filter((b) =>
-        catFilter === CAT_ALL ? true : b.equipment.category === catFilter,
-      )
-      .map(toCalendarEvent);
-  }, [bookings, equipFilter, catFilter]);
+  const events: CalendarEventItem[] = React.useMemo(
+    () => (rawBookings ?? []).map(toCalendarEvent),
+    [rawBookings],
+  );
 
   // --- legend: which statuses are actually present? ---
   const presentStatuses = React.useMemo(() => {
     const set = new Set<BookingStatus>();
     for (const ev of events) set.add(ev.status);
     if (set.size === 0) {
-      // Show the common defaults when the visible range is empty
-      return (["PENDING", "CONFIRMED", "IN_PROGRESS", "COMPLETED"] as BookingStatus[]);
+      return [
+        "PENDING",
+        "CONFIRMED",
+        "IN_PROGRESS",
+        "COMPLETED",
+      ] as BookingStatus[];
     }
     return Array.from(set);
   }, [events]);
@@ -108,33 +142,47 @@ export default function ManagerCalendarPage() {
     toast(`${ev.title} · ${ev.subtitle}`);
   };
 
-  const clearFilters = () => {
-    setEquipFilter(EQUIP_ALL);
-    setCatFilter(CAT_ALL);
+  const selectedEquipment = (equipment ?? []).find((e) => e.id === equipmentId);
+
+  const refetchAll = () => {
+    refetchEquip();
+    refetchBookings();
   };
 
-  const hasFilters = equipFilter !== EQUIP_ALL || catFilter !== CAT_ALL;
-  const anyLoading = loading || equipLoading;
+  const showEmptyNoEquip =
+    !equipLoading &&
+    !equipError &&
+    (equipment ?? []).length === 0;
 
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
         title="Calendar"
-        description="Spot booking conflicts across all equipment at a glance."
+        description="Browse equipment bookings on a weekly calendar."
         actions={
-          <Button variant="outline" size="sm" onClick={refetch} className="gap-1.5">
-            <RefreshCw className="size-3.5" />
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={refetchAll}
+            className="gap-1.5"
+          >
+            <RefreshCw
+              className={cn(
+                "size-3.5",
+                (equipLoading || bookingsLoading) && "animate-spin",
+              )}
+            />
             Refresh
           </Button>
         }
       />
 
-      {/* Filters */}
+      {/* Equipment selector */}
       <Card className="glass rounded-2xl border-border/60 p-4 shadow-soft">
         <div className="flex flex-col gap-3">
           <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
             <Filter className="size-3.5" />
-            Filters
+            Filter
           </div>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div className="flex flex-col gap-1.5">
@@ -142,106 +190,113 @@ export default function ManagerCalendarPage() {
                 Equipment
               </label>
               <Select
-                value={equipFilter}
-                onValueChange={setEquipFilter}
-                disabled={equipLoading}
+                value={equipmentId !== null ? String(equipmentId) : ""}
+                onValueChange={(v) => setEquipmentId(Number(v))}
+                disabled={
+                  equipLoading || (equipment ?? []).length === 0
+                }
               >
                 <SelectTrigger className="w-full">
-                  <SelectValue placeholder="All equipment" />
+                  <SelectValue placeholder="Select equipment…" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value={EQUIP_ALL}>All equipment</SelectItem>
                   {(equipment ?? []).map((e) => (
-                    <SelectItem key={e.id} value={e.equipmentName}>
+                    <SelectItem key={e.id} value={String(e.id)}>
                       {e.equipmentName}
+                      <span className="ml-2 text-xs text-muted-foreground">
+                        · {e.category}
+                      </span>
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
-
             <div className="flex flex-col gap-1.5">
               <label className="text-xs font-medium text-muted-foreground">
-                Category
+                Visible week
               </label>
-              <Select
-                value={catFilter}
-                onValueChange={setCatFilter}
-                disabled={equipLoading}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="All categories" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={CAT_ALL}>All categories</SelectItem>
-                  {categories.map((c) => (
-                    <SelectItem key={c} value={c}>
-                      {c}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <div className="flex h-9 items-center rounded-md border border-input bg-background px-3 text-sm text-foreground">
+                {format(windowStart, "MMM d, yyyy")}
+                {" – "}
+                {format(windowEnd, "MMM d, yyyy")}
+              </div>
             </div>
           </div>
-
-          {hasFilters && (
-            <div className="flex justify-end">
-              <Button variant="ghost" size="sm" onClick={clearFilters} className="h-7 text-xs">
-                Clear filters
-              </Button>
-            </div>
-          )}
+          <p className="text-xs text-muted-foreground">
+            {selectedEquipment ? (
+              <>
+                Showing bookings for{" "}
+                <span className="font-medium text-foreground/90">
+                  {selectedEquipment.equipmentName}
+                </span>{" "}
+                (S/N {selectedEquipment.serial}).
+              </>
+            ) : (
+              <>Select an equipment to view its weekly schedule.</>
+            )}
+          </p>
         </div>
       </Card>
 
-      {/* Loading */}
-      {anyLoading ? (
+      {/* Loading / error / empty states */}
+      {equipLoading ? (
         <ListSkeleton count={2} />
-      ) : error ? (
-        <div className="flex flex-col items-center gap-3 rounded-2xl border border-dashed border-border/70 bg-muted/30 px-6 py-12 text-center">
-          <p className="text-sm font-medium text-foreground">
-            Couldn’t load the calendar.
-          </p>
-          <p className="max-w-sm text-sm text-muted-foreground">{error}</p>
-          <Button variant="outline" size="sm" onClick={refetch} className="gap-1.5">
-            <RefreshCw className="size-3.5" />
-            Retry
-          </Button>
-        </div>
       ) : equipError ? (
         <div className="flex flex-col items-center gap-3 rounded-2xl border border-dashed border-border/70 bg-muted/30 px-6 py-12 text-center">
           <p className="text-sm font-medium text-foreground">
             Couldn’t load equipment list.
           </p>
           <p className="max-w-sm text-sm text-muted-foreground">{equipError}</p>
-          <Button variant="outline" size="sm" onClick={refetchEquip} className="gap-1.5">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={refetchEquip}
+            className="gap-1.5"
+          >
             <RefreshCw className="size-3.5" />
             Retry
           </Button>
         </div>
-      ) : (bookings?.length ?? 0) === 0 ? (
+      ) : showEmptyNoEquip ? (
         <EmptyState
           icon={CalendarDays}
-          title="No bookings in this range"
-          description="No booking requests fall within the next/previous 45 days."
+          title="Nothing to show yet"
+          description="No equipment has been registered. Add equipment first, then bookings will appear on the calendar."
         />
-      ) : events.length === 0 ? (
+      ) : equipmentId === null ? (
         <EmptyState
-          icon={Layers}
-          title="No matching bookings"
-          description="Try clearing the equipment or category filter to see all bookings."
-          action={
-            <Button variant="outline" size="sm" onClick={clearFilters}>
-              Clear filters
-            </Button>
-          }
+          icon={Microscope}
+          title="Select equipment"
+          description="Pick an equipment above to see its bookings on the weekly calendar."
         />
+      ) : bookingsLoading && !rawBookings && !bookingsError ? (
+        <ListSkeleton count={2} />
+      ) : bookingsError ? (
+        <div className="flex flex-col items-center gap-3 rounded-2xl border border-dashed border-border/70 bg-muted/30 px-6 py-12 text-center">
+          <p className="text-sm font-medium text-foreground">
+            Couldn’t load calendar bookings.
+          </p>
+          <p className="max-w-sm text-sm text-muted-foreground">
+            {bookingsError}
+          </p>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={refetchBookings}
+            className="gap-1.5"
+          >
+            <RefreshCw className="size-3.5" />
+            Retry
+          </Button>
+        </div>
       ) : (
         <>
           <CalendarView
             events={events}
             onSelect={onSelect}
-            emptyHint="No bookings in this range."
+            emptyHint="No bookings in this week."
+            cursor={cursor}
+            onCursorChange={setCursor}
           />
 
           {/* Legend */}
@@ -272,8 +327,21 @@ export default function ManagerCalendarPage() {
                 })}
               </div>
               <p className="text-xs text-muted-foreground">
-                {events.length} booking{events.length === 1 ? "" : "s"} in the ±45-day
-                window. Use the arrows above to browse weeks.
+                {events.length} booking{events.length === 1 ? "" : "s"} in the
+                week of {format(windowStart, "MMM d")} –{" "}
+                {format(windowEnd, "MMM d")}.
+                {selectedEquipment ? (
+                  <>
+                    {" "}
+                    Filtered to{" "}
+                    <span className="inline-flex items-center gap-1 font-medium text-foreground/80">
+                      <Microscope className="size-3" />
+                      {selectedEquipment.equipmentName}
+                    </span>
+                    .
+                  </>
+                ) : null}{" "}
+                Use the arrows above to browse weeks.
               </p>
             </div>
           </Card>

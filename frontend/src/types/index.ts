@@ -1,6 +1,5 @@
 // ---------------------------------------------------------------------------
-// Shared domain types for the Lab Equipment Booking & Management System
-// Matches the real backend entities (Booking, Equipment, Waitlist, etc.)
+// Shared domain types — aligned with the upgraded backend (32 endpoints).
 // ---------------------------------------------------------------------------
 
 export type Role =
@@ -20,14 +19,29 @@ export const ROLES: Role[] = [
   "SYSTEM_ADMIN",
 ];
 
+// ─── Institution / Department ───
+export interface Institution {
+  id: number;
+  name: string;
+  code: string | null;
+  createdAt: string;
+}
+export interface Department {
+  id: number;
+  name: string;
+  institution: Institution;
+  createdAt: string;
+}
+
+// ─── User ───
 export interface User {
   id: number;
   username: string;
   email: string;
   role: Role;
   emailVerified: boolean;
-  department: string;
-  institution: string;
+  department: Department | null;
+  institution: Institution | null;
 }
 
 export interface JwtPayload {
@@ -39,15 +53,19 @@ export interface JwtPayload {
   [key: string]: unknown;
 }
 
-// --- Equipment ---------------------------------------------------------------
+// ─── Tag ───
+export interface Tag {
+  id: number;
+  name: string;
+}
 
+// ─── Equipment ───
 export type EquipmentStatus =
   | "AVAILABLE"
   | "BOOKED"
   | "UNDER_MAINTENANCE"
   | "OUT_OF_SERVICE"
-  | "RETIRED"
-  | string;
+  | "RETIRED";
 
 export const EQUIPMENT_STATUSES: EquipmentStatus[] = [
   "AVAILABLE",
@@ -63,24 +81,82 @@ export interface Equipment {
   equipmentName: string;
   category: string;
   description: string;
-  /** ISO datetime, server-assigned */
   acquisitionDate: string;
-  institution: string;
-  /** username of the Lab Manager who added it */
-  addedBy: string;
+  institution: Institution | null;
+  department: Department | null;
+  addedByUsername: string | null;
   status: EquipmentStatus;
+  tags: Tag[];
+  createdAt: string;
+  updatedAt: string | null;
 }
 
-export type EquipmentInput = {
+export interface EquipmentInput {
   serial: string;
   equipmentName: string;
   category: string;
   description: string;
-  institution: string;
-};
+  institutionId: number | null;
+  departmentId: number | null;
+}
 
-// --- Bookings ----------------------------------------------------------------
+export interface EquipmentFilter {
+  category?: string;
+  tag?: string;
+  departmentId?: number;
+  institutionId?: number;
+  status?: EquipmentStatus;
+  search?: string;
+  page?: number;
+  size?: number;
+}
 
+export interface Page<T> {
+  content: T[];
+  totalElements: number;
+  totalPages: number;
+  currentPage: number;
+}
+
+// ─── Equipment Documents ───
+export type DocumentType =
+  | "MANUAL"
+  | "DATASHEET"
+  | "SPEC_SHEET"
+  | "CERTIFICATE"
+  | "OTHER";
+
+export interface EquipmentDocument {
+  id: number;
+  equipmentId: number;
+  docName: string;
+  docUrl: string;
+  docType: DocumentType;
+  uploadedAt: string;
+}
+
+// ─── Calibration ───
+export type CalibrationRecordType =
+  | "CALIBRATION"
+  | "CERTIFICATION"
+  | "INSPECTION"
+  | "MAINTENANCE_CHECK";
+
+export interface CalibrationRecord {
+  id: number;
+  equipmentId: number;
+  equipmentName: string;
+  recordType: CalibrationRecordType;
+  performedDate: string;
+  nextDueDate: string | null;
+  performedBy: string | null;
+  result: string | null;
+  certificateRef: string | null;
+  notes: string | null;
+  createdAt: string;
+}
+
+// ─── Booking ───
 export type BookingStatus =
   | "PENDING"
   | "CONFIRMED"
@@ -88,7 +164,7 @@ export type BookingStatus =
   | "COMPLETED"
   | "CANCELLED"
   | "REJECTED"
-  | "WAITLIST";
+  | "NO_SHOW";
 
 export const BOOKING_STATUSES: BookingStatus[] = [
   "PENDING",
@@ -97,37 +173,53 @@ export const BOOKING_STATUSES: BookingStatus[] = [
   "COMPLETED",
   "CANCELLED",
   "REJECTED",
-  "WAITLIST",
+  "NO_SHOW",
 ];
-
-export interface BookingUser {
-  id: number;
-  username: string;
-  email: string;
-  role: string;
-  institution: string;
-  department: string;
-}
 
 export interface Booking {
   id: number;
-  equipment: Equipment;
-  user: BookingUser;
-  /** ISO datetime */
+  equipmentId: number;
+  equipmentName: string;
+  userId: number;
+  username: string;
   startTime: string;
-  /** ISO datetime */
   endTime: string;
   status: BookingStatus;
+  recurrencePattern: string | null;
+  parentBookingId: number | null;
+  createdAt: string;
+  updatedAt: string | null;
 }
 
-// Matches the real backend's Waitlist entity: {id, equipment, user, startTime, endTime, createdAt}.
-// `position` is derived client-side (sort by createdAt, enumerate).
-export interface WaitlistEntry {
-  id: number;
-  equipment: Equipment;
-  user: BookingUser;
+export type RecurrencePattern = "DAILY" | "WEEKLY" | "MONTHLY";
+
+export interface RecurringBookingRequest {
+  userId: number;
+  equipmentId: number;
   startTime: string;
   endTime: string;
+  recurrencePattern: RecurrencePattern;
+  recurrenceCount: number;
+}
+
+export interface RecurringBookingResponse {
+  parentBookingId: number;
+  totalBookingsCreated: number;
+  totalWaitlisted: number;
+  bookings: Booking[];
+  waitlistedSlots: { startTime: string; endTime: string; message: string }[];
+}
+
+// ─── Waitlist ───
+export interface WaitlistEntry {
+  id: number;
+  equipmentId: number;
+  equipmentName: string;
+  userId: number;
+  username: string;
+  startTime: string;
+  endTime: string;
+  position: number;
   createdAt: string;
 }
 
@@ -136,8 +228,19 @@ export interface MyDashboard {
   waitlistEntries: WaitlistEntry[];
 }
 
-// --- Utilization (Module 4) -------------------------------------------------
+// ─── Booking Audit ───
+export interface BookingAudit {
+  id: number;
+  bookingId: number;
+  action: string;
+  fromStatus: string | null;
+  toStatus: string;
+  performedByUsername: string;
+  notes: string | null;
+  createdAt: string;
+}
 
+// ─── Utilization ───
 export interface UtilizationReport {
   equipmentId: number;
   equipmentName: string;
@@ -146,6 +249,143 @@ export interface UtilizationReport {
   utilizationPercentage: number;
 }
 
+export interface ScopeUtilizationReport {
+  scope: "department" | "institution";
+  scopeId: number;
+  scopeName: string;
+  periodStart: string;
+  periodEnd: string;
+  totalEquipment: number;
+  totalBookedHours: number;
+  totalAvailableHours: number;
+  utilizationPercentage: number;
+  perEquipment: UtilizationReport[];
+}
+
+export interface HeatmapPoint {
+  dayOfWeek: string;
+  hourOfDay: number;
+  bookedHours: number;
+  bookingCount: number;
+}
+
+export interface HeatmapReport {
+  equipmentId: number;
+  periodStart: string;
+  periodEnd: string;
+  heatmap: HeatmapPoint[];
+}
+
+export interface IdleEquipmentRow {
+  equipmentId: number;
+  equipmentName: string;
+  serial: string;
+  department: string | null;
+  bookedHours: number;
+  availableHours: number;
+  idleHours: number;
+  utilizationPercentage: number;
+  status: EquipmentStatus;
+}
+
+export interface IdleReport {
+  periodStart: string;
+  periodEnd: string;
+  thresholdHours: number;
+  idleEquipment: IdleEquipmentRow[];
+  totalIdleCount: number;
+}
+
+export interface PeakReport {
+  periodStart: string;
+  periodEnd: string;
+  peakHourOfDay: number | null;
+  peakDayOfWeek: string | null;
+  peakHourBookedHours: number;
+  peakDayBookedHours: number;
+  hourlyDistribution: { hour: number; bookedHours: number }[];
+  dailyDistribution: { day: string; bookedHours: number }[];
+}
+
+export interface BenchmarkReport {
+  equipmentId: number;
+  equipmentName: string;
+  currentPeriod: { start: string; end: string; utilizationPercentage: number };
+  historicalAverage: { periodMonths: number; utilizationPercentage: number };
+  trend: "INCREASING" | "DECREASING" | "STABLE";
+  deltaPercentage: number;
+  monthlyHistory: { month: string; utilizationPercentage: number }[];
+}
+
+export interface SharedVsExclusiveReport {
+  periodStart: string;
+  periodEnd: string;
+  sharedEquipment: {
+    count: number;
+    totalBookedHours: number;
+    avgUniqueUsersPerEquipment: number;
+  };
+  exclusiveEquipment: {
+    count: number;
+    totalBookedHours: number;
+    avgUniqueUsersPerEquipment: number;
+  };
+  perEquipment: {
+    equipmentId: number;
+    equipmentName: string;
+    type: "SHARED" | "EXCLUSIVE";
+    uniqueUsers: number;
+    bookedHours: number;
+  }[];
+}
+
+export interface RealtimeUsage {
+  timestamp: string;
+  inUseCount: number;
+  availableCount: number;
+  bookedCount: number;
+  maintenanceCount: number;
+  inUseEquipment: {
+    equipmentId: number;
+    equipmentName: string;
+    user: { id: number; username: string };
+    bookingId: number;
+    startTime: string;
+    endTime: string;
+    remainingMinutes: number;
+  }[];
+}
+
+export interface DashboardStats {
+  totalEquipment: number;
+  availableCount: number;
+  bookedCount: number;
+  maintenanceCount: number;
+  outOfServiceCount: number;
+  retiredCount: number;
+  pendingApprovalCount: number;
+  activeBookingsCount: number;
+  waitlistCount: number;
+  calibrationsDueIn30Days: number;
+  generatedAt: string;
+}
+
+// ─── Auth payloads ───
+export interface RegisterPayload {
+  username: string;
+  email: string;
+  password: string;
+  role: Role;
+  departmentId: number | null;
+  institutionId: number | null;
+}
+
+export interface LoginResponse {
+  tokenType: string;
+  accessToken: string;
+}
+
+// ─── Calendar / Actions ───
 export interface CalendarEvent {
   id: number;
   title: string;
@@ -157,26 +397,10 @@ export interface CalendarEvent {
   username: string;
 }
 
-// --- Auth payloads -----------------------------------------------------------
-
-export interface RegisterPayload {
-  username: string;
-  email: string;
-  password: string;
-  role: Role;
-  department: string;
-  institution: string;
-}
-
-export interface LoginResponse {
-  tokenType: string;
-  accessToken: string;
-}
-
-// Booking lifecycle action descriptor
 export type BookingAction =
   | "accept"
   | "reject"
   | "start"
   | "cancel"
-  | "complete";
+  | "complete"
+  | "noShow";
