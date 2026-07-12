@@ -7,5 +7,6 @@ public enum BookingStatus {
     IN_PROGRESS,
     WAITLISTED,
     CANCELLED,
-    COMPLETED
+    COMPLETED,
+    NO_SHOW
 }

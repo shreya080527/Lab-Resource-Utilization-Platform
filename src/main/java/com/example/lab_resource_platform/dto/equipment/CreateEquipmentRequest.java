@@ -1,25 +1,17 @@
 package com.example.lab_resource_platform.dto.equipment;
 
+
 import jakarta.validation.constraints.NotBlank;
-import lombok.AllArgsConstructor;
 import lombok.Data;
-import lombok.NoArgsConstructor;
 
 @Data
-@NoArgsConstructor
-@AllArgsConstructor
 public class CreateEquipmentRequest {
-
-    @NotBlank
+    @NotBlank(message = "Serial is required")
     private String serial;
-
-    @NotBlank
+    @NotBlank(message = "Equipment name is required")
     private String equipmentName;
-
     private String category;
-
     private String description;
-
-    private String institution;
-
+    private Long institutionId;
+    private Long departmentId;
 }

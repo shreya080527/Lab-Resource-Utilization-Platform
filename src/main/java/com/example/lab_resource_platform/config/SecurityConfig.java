@@ -3,6 +3,7 @@ package com.example.lab_resource_platform.config;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
@@ -73,6 +74,8 @@ public class SecurityConfig {
                                 "/api/auth/reset-password",
                                 "/api/auth/resend-otp")
                         .permitAll()
+                        // ↓ ADD THIS — allow the register form to load dropdowns pre-login
+                        .requestMatchers(HttpMethod.GET, "/api/institutions", "/api/departments").permitAll()
                         .anyRequest().authenticated())
                 .logout(logout -> logout.disable());
 

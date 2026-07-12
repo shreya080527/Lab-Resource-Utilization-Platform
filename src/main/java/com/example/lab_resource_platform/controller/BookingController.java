@@ -1,165 +1,119 @@
 package com.example.lab_resource_platform.controller;
 
+import com.example.lab_resource_platform.dto.*;
+import com.example.lab_resource_platform.entity.BookingAudit;
+import com.example.lab_resource_platform.entity.Bookings.Booking;
+import com.example.lab_resource_platform.entity.Waitlist;
+import com.example.lab_resource_platform.service.BookingService;
+import lombok.RequiredArgsConstructor;
+import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.*;
+
+import jakarta.validation.Valid;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
-
-import org.springframework.format.annotation.DateTimeFormat;
-import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.security.core.Authentication;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
-
-import com.example.lab_resource_platform.dto.BookingDto;
-import com.example.lab_resource_platform.dto.EquipmentUtilizationDTO;
-import com.example.lab_resource_platform.dto.ResearcherDashboardDto;
-import com.example.lab_resource_platform.entity.Bookings.Booking;
-import com.example.lab_resource_platform.service.BookingService;
-
-import lombok.RequiredArgsConstructor;
 
 @RestController
 @RequestMapping("/api/bookings")
 @RequiredArgsConstructor
 public class BookingController {
-
     private final BookingService bookingService;
 
     @PostMapping("/create")
-    @PreAuthorize("hasAnyRole('RESEARCHER')")
-    public ResponseEntity<?> createBooking(@RequestBody BookingDto request) {
-        try {
-            String response = bookingService.createBooking(
-                    request.getUserId(),
-                    request.getEquipmentId(),
-                    request.getStartTime(),
-                    request.getEndTime()
-            );
-            return ResponseEntity.ok(response);
-            
-        } catch (IllegalArgumentException ex) {
-            // Returns the precise 400 Bad Request Map structure when validation rules fail
-            return ResponseEntity.badRequest().body(Map.of(
-                "error", "Bad Request",
-                "message", ex.getMessage()
-            ));
-        } catch (Exception ex) {
-            // General catch-all block to prevent server stacktrace leaks
-            return ResponseEntity.internalServerError().body(Map.of(
-                "error", "Internal Server Error",
-                "message", ex.getMessage()
-            ));
-        }
+    @PreAuthorize("hasRole('RESEARCHER')")
+    public ResponseEntity<BookingResponse> create(@RequestBody Map<String, Object> body) {
+        Long userId = Long.valueOf(body.get("userId").toString());
+        Long equipmentId = Long.valueOf(body.get("equipmentId").toString());
+        LocalDateTime start = LocalDateTime.parse(body.get("startTime").toString());
+        LocalDateTime end = LocalDateTime.parse(body.get("endTime").toString());
+        Booking b = bookingService.createBooking(userId, equipmentId, start, end);
+        return ResponseEntity.status(HttpStatus.CREATED).body(BookingResponse.from(b));
+    }
+
+    @PostMapping("/create-recurring")
+    @PreAuthorize("hasRole('RESEARCHER')")
+    public ResponseEntity<RecurringBookingResponse> createRecurring(@Valid @RequestBody RecurringBookingRequest req) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(bookingService.createRecurring(req));
     }
 
     @GetMapping("/calendar")
-    @PreAuthorize("hasAnyRole('RESEARCHER')")
-    public ResponseEntity<List<Booking>> getCalendar(
+    @PreAuthorize("hasRole('RESEARCHER')")
+    public ResponseEntity<List<BookingResponse>> calendar(
             @RequestParam Long userId,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime start,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime end) {
-        return ResponseEntity.ok(bookingService.getCalendar(userId, start, end));
+        return ResponseEntity.ok(bookingService.findUserCalendar(userId, start, end)
+                .stream().map(BookingResponse::from).toList());
     }
 
-    /*@PostMapping("/{id}/status")
-    @PreAuthorize("hasAnyRole('RESEARCHER', 'LAB_MANAGER')")
-    public ResponseEntity<String> updateStatus(@PathVariable Long id, @RequestParam BookingStatus status) {
-        bookingService.updateBookingStatus(id, status);
-        return ResponseEntity.ok("Booking status updated to " + status + ". Waitlist verified.");
-    }*/
-    
+    @GetMapping("/equipment-calendar")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<List<BookingResponse>> equipmentCalendar(
+            @RequestParam Long equipmentId,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime start,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime end) {
+        return ResponseEntity.ok(bookingService.findEquipmentCalendar(equipmentId, start, end)
+                .stream().map(BookingResponse::from).toList());
+    }
+
     @PutMapping("/{id}/accept")
     @PreAuthorize("hasRole('LAB_MANAGER')")
-    public ResponseEntity<String> acceptBooking(@PathVariable Long id) {
-        bookingService.acceptBooking(id);
-        return ResponseEntity.ok("Booking accepted successfully.");
+    public ResponseEntity<BookingResponse> accept(@PathVariable Long id) {
+        return ResponseEntity.ok(BookingResponse.from(bookingService.accept(id)));
     }
-    
+
     @PutMapping("/{id}/reject")
     @PreAuthorize("hasRole('LAB_MANAGER')")
-    public ResponseEntity<String> rejectBooking(@PathVariable Long id) {
-        bookingService.rejectBooking(id);
-        return ResponseEntity.ok("Booking rejected successfully.");
+    public ResponseEntity<BookingResponse> reject(@PathVariable Long id) {
+        return ResponseEntity.ok(BookingResponse.from(bookingService.reject(id)));
     }
-    
+
     @PutMapping("/{id}/cancel")
-    @PreAuthorize("hasAnyRole('RESEARCHER')")
-    public ResponseEntity<String> cancelBooking(@PathVariable Long id) {
-        bookingService.cancelBooking(id);
-        return ResponseEntity.ok("Booking cancelled successfully.");
+    @PreAuthorize("hasRole('RESEARCHER')")
+    public ResponseEntity<BookingResponse> cancel(@PathVariable Long id) {
+        return ResponseEntity.ok(BookingResponse.from(bookingService.cancel(id)));
     }
-    
+
     @PutMapping("/{id}/start")
     @PreAuthorize("hasRole('RESEARCHER')")
-    public ResponseEntity<String> startBooking(
-            @PathVariable Long id,
-            Authentication authentication) {
-
-        bookingService.startBooking(id, authentication);
-
-        return ResponseEntity.ok("Booking started successfully.");
+    public ResponseEntity<BookingResponse> start(@PathVariable Long id) {
+        return ResponseEntity.ok(BookingResponse.from(bookingService.start(id)));
     }
-    
+
     @PutMapping("/{id}/complete")
     @PreAuthorize("hasAnyRole('RESEARCHER','LAB_MANAGER')")
-    public ResponseEntity<String> completeBooking(
-            @PathVariable Long id,
-            Authentication authentication) {
-
-        bookingService.completeBooking(id, authentication);
-
-        return ResponseEntity.ok("Booking completed successfully.");
+    public ResponseEntity<BookingResponse> complete(@PathVariable Long id) {
+        return ResponseEntity.ok(BookingResponse.from(bookingService.complete(id)));
     }
-    
-    @GetMapping("/utilization")
+
+    @PutMapping("/{id}/no-show")
     @PreAuthorize("hasRole('LAB_MANAGER')")
-    public ResponseEntity<EquipmentUtilizationDTO> getUtilization(
-
-            @RequestParam Long equipmentId,
-
-            @RequestParam
-            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
-            LocalDateTime start,
-
-            @RequestParam
-            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
-            LocalDateTime end) {
-
-        return ResponseEntity.ok(
-                bookingService.calculateUtilization(
-                        equipmentId,
-                        start,
-                        end));
+    public ResponseEntity<BookingResponse> noShow(@PathVariable Long id) {
+        return ResponseEntity.ok(BookingResponse.from(bookingService.noShow(id)));
     }
-    
-    @GetMapping("/my-dashboard/{userId}")
-    @PreAuthorize("hasAnyRole('RESEARCHER')")
-    public ResponseEntity<?> getResearcherDashboard(@PathVariable Long userId) {
-        try {
-            ResearcherDashboardDto dashboardData = bookingService.getResearcherDashboard(userId);
-            return ResponseEntity.ok(dashboardData);
-        } catch (IllegalArgumentException ex) {
-            return ResponseEntity.badRequest().body(Map.of(
-                "error", "Bad Request",
-                "message", ex.getMessage()
-            ));
-        } catch (Exception ex) {
-            return ResponseEntity.internalServerError().body(Map.of(
-                "error", "Internal Server Error",
-                "message", ex.getMessage()
-            ));
-        }
+
+    @GetMapping("/{id}/audit")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<List<BookingAuditResponse>> bookingAudit(@PathVariable Long id) {
+        return ResponseEntity.ok(bookingService.findBookingAudit(id)
+                .stream().map(BookingAuditResponse::from).toList());
     }
+
+    @GetMapping("/equipment-audit/{equipmentId}")
+    @PreAuthorize("hasRole('LAB_MANAGER')")
+    public ResponseEntity<List<BookingAuditResponse>> equipmentAudit(@PathVariable Long equipmentId) {
+        return ResponseEntity.ok(bookingService.findEquipmentAudit(equipmentId)
+                .stream().map(BookingAuditResponse::from).toList());
+    }
+
     @GetMapping("/all")
     @PreAuthorize("hasRole('LAB_MANAGER')")
-    public ResponseEntity<List<Booking>> getAllBookings() {
-        return ResponseEntity.ok(bookingService.getAllBookings());
+    public ResponseEntity<List<BookingResponse>> all() {
+        return ResponseEntity.ok(bookingService.findAll()
+                .stream().map(BookingResponse::from).toList());
     }
 }

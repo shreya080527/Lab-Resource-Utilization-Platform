@@ -1,6 +1,12 @@
 package com.example.lab_resource_platform.service.user;
 
+import com.example.lab_resource_platform.dto.auth.RegisterRequest;
+import com.example.lab_resource_platform.entity.Department;
+import com.example.lab_resource_platform.entity.Institution;
+import com.example.lab_resource_platform.entity.user.Role;
 import com.example.lab_resource_platform.entity.user.User;
+import com.example.lab_resource_platform.repository.DepartmentRepo;
+import com.example.lab_resource_platform.repository.InstitutionRepo;
 import com.example.lab_resource_platform.repository.auth.UserRepo;
 import com.example.lab_resource_platform.service.otp.OtpService;
 import jakarta.transaction.Transactional;
@@ -20,62 +26,68 @@ public class UserService {
     @Autowired
     private OtpService otpService;
 
+    @Autowired
+    private  DepartmentRepo departmentRepo;
+
+    @Autowired
+    private  InstitutionRepo institutionRepo;
+
 
     private BCryptPasswordEncoder encoder = new BCryptPasswordEncoder(12);
 
 
+
+
     @Transactional
-    public User registerUser(User user) {
-
-        // Check if email already exists and if its verified
-        if (repo.existsByEmail(user.getEmail()) ) {
-            User dbUser = repo.findByEmail(user.getEmail()).orElseThrow(()-> new RuntimeException("User not found"));
-            if(dbUser.getEmailVerified()){
-                throw new RuntimeException("Email already registered");
-            }
-            dbUser.setEmail(user.getEmail());
-            if (repo.existsByUsername(user.getUsername())) {
-                if(dbUser.getEmailVerified()){
-                    throw new RuntimeException("UserName already taken");
-                }
-            }
-            dbUser.setUsername(user.getUsername());
-            dbUser.setPassword(encoder.encode(user.getPassword()));
-            dbUser.setEmailVerified(false);
-            dbUser.setDepartment(user.getDepartment());
-            dbUser.setInstitution(user.getInstitution());
-            dbUser.setRole(user.getRole());
-            // Save user
-            User savedUser = repo.save(dbUser);
-
-            // Generate and send OTP
-            otpService.generateAndSendOtp(savedUser);
-
-            return savedUser;
-
-
+    public User registerUser(RegisterRequest req) {
+        if (repo.existsByEmail(req.getEmail())) {
+            throw new RuntimeException("Email already registered");
+        }
+        if (repo.existsByUsername(req.getUsername())) {
+            throw new RuntimeException("Username already taken");
         }
 
-        // Check if username already exists
-        if (repo.existsByUsername(user.getUsername())) {
-            User dbUser = repo.findByEmail(user.getEmail()).orElseThrow(()-> new RuntimeException("User not found"));
-            if(dbUser.getEmailVerified()){
-                throw new RuntimeException("UserName already taken");
+        Institution institution = null;
+        Department department = null;
+
+        // SYSTEM_ADMIN is global — no institution/department required
+        if (req.getRole() != Role.SYSTEM_ADMIN) {
+            if (req.getInstitutionId() == null) {
+                throw new IllegalArgumentException("Institution is required for role: " + req.getRole());
+            }
+            if (req.getDepartmentId() == null) {
+                throw new IllegalArgumentException("Department is required for role: " + req.getRole());
+            }
+
+            institution = institutionRepo.findById(req.getInstitutionId())
+                    .orElseThrow(() -> new RuntimeException("Institution not found: " + req.getInstitutionId()));
+
+            department = departmentRepo.findById(req.getDepartmentId())
+                    .orElseThrow(() -> new RuntimeException("Department not found: " + req.getDepartmentId()));
+
+            if (!department.getInstitution().getId().equals(institution.getId())) {
+                throw new IllegalArgumentException(
+                        "Department '" + department.getName() +
+                                "' does not belong to institution '" + institution.getName() + "'");
             }
         }
 
-        // Encode password
-        user.setPassword(encoder.encode(user.getPassword()));
+        User user = new User();
+        user.setUsername(req.getUsername());
+        user.setEmail(req.getEmail());
+        user.setPassword(encoder.encode(req.getPassword()));
+        user.setRole(req.getRole());
         user.setEmailVerified(false);
+        user.setDepartment(department);       // null for SYSTEM_ADMIN
+        user.setInstitution(institution);     // null for SYSTEM_ADMIN
 
-        // Save user
-        User savedUser = repo.save(user);
+        User saved = repo.save(user);
+
+        // Generate + send OTP (your existing logic)
+        otpService.generateAndSendOtp(saved);
 
 
-        // Generate and send OTP
-        otpService.generateAndSendOtp(savedUser);
-
-        return savedUser;
+        return saved;
     }
 
     @Transactional

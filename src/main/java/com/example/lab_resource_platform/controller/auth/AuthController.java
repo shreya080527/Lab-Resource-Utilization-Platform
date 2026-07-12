@@ -1,9 +1,6 @@
 package com.example.lab_resource_platform.controller.auth;
 
-import com.example.lab_resource_platform.dto.auth.GetUserDetailsResponse;
-import com.example.lab_resource_platform.dto.auth.LoginRequest;
-import com.example.lab_resource_platform.dto.auth.ResetRequest;
-import com.example.lab_resource_platform.dto.auth.ResetRequestEmail;
+import com.example.lab_resource_platform.dto.auth.*;
 import com.example.lab_resource_platform.entity.user.User;
 import com.example.lab_resource_platform.service.jwt.JwtService;
 import com.example.lab_resource_platform.service.user.UserService;
@@ -34,9 +31,9 @@ public class AuthController {
 
 
     @PostMapping("/register")
-    public ResponseEntity<?> register(@Valid @RequestBody User user) {
+    public ResponseEntity<?> register(@Valid @RequestBody RegisterRequest request) {
         try {
-            User registeredUser = service.registerUser(user);
+            User registeredUser = service.registerUser(request);
             return ResponseEntity.ok(Map.of(
                     "message", "Registration successful! Please check your email for OTP.",
                     "email", registeredUser.getEmail()
@@ -141,20 +138,9 @@ public class AuthController {
     @GetMapping("/get-user-details")
     public ResponseEntity<?> getCurrentUser() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        String email = authentication.getName(); // this returns getUsername() from UserPrincipal
+        String email = authentication.getName();
 
         User user = service.findByEmail(email);
-
-        GetUserDetailsResponse response = new GetUserDetailsResponse(
-                user.getId(),
-                user.getUsername(),
-                user.getEmail(),
-                user.getRole(),
-                user.getEmailVerified(),
-                user.getDepartment(),
-                user.getInstitution()
-        );
-
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(GetUserDetailsResponse.from(user));
     }
 }
