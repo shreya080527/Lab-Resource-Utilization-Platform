@@ -29,6 +29,7 @@ import EquipmentFormPage from "@/features/manager/EquipmentFormPage";
 import ManagerBookingsPage from "@/features/manager/ManagerBookingsPage";
 import ManagerCalendarPage from "@/features/manager/ManagerCalendarPage";
 import UtilizationPage from "@/features/manager/UtilizationPage";
+import EquipmentUtilizationDashboard from "@/features/manager/EquipmentUtilizationDashboard";
 import ManagerWaitlistPage from "@/features/manager/ManagerWaitlistPage";
 import CalibrationsDuePage from "@/features/manager/CalibrationsDuePage";
 import BookingAuditPage from "@/features/manager/BookingAuditPage";
@@ -209,15 +210,15 @@ export function AppRoot() {
         />
         <Route
           path="/manager/equipment"
-          element={withRoleShell(["LAB_MANAGER"], <ManageEquipmentPage />)}
+          element={withRoleShell(["LAB_MANAGER", "SYSTEM_ADMIN", "INSTITUTION_ADMIN"], <ManageEquipmentPage />)}
         />
         <Route
           path="/manager/equipment/new"
-          element={withRoleShell(["LAB_MANAGER"], <EquipmentFormPage />)}
+          element={withRoleShell(["LAB_MANAGER", "SYSTEM_ADMIN", "INSTITUTION_ADMIN"], <EquipmentFormPage />)}
         />
         <Route
           path="/manager/equipment/:id/edit"
-          element={withRoleShell(["LAB_MANAGER"], <EquipmentFormPage />)}
+          element={withRoleShell(["LAB_MANAGER", "SYSTEM_ADMIN", "INSTITUTION_ADMIN"], <EquipmentFormPage />)}
         />
         <Route
           path="/manager/bookings"
@@ -230,6 +231,10 @@ export function AppRoot() {
         <Route
           path="/manager/utilization"
           element={withRoleShell(["LAB_MANAGER"], <UtilizationPage />)}
+        />
+        <Route
+          path="/manager/utilization-dashboard"
+          element={withRoleShell(["LAB_MANAGER", "DEPARTMENT_HEAD", "INSTITUTION_ADMIN", "SYSTEM_ADMIN"], <EquipmentUtilizationDashboard />)}
         />
         <Route
           path="/manager/waitlist"

@@ -40,7 +40,7 @@ public class Equipment {
     private Department department;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "added_by_id")
+    @JoinColumn(name = "added_by")
     private User addedBy;
 
     @Enumerated(EnumType.STRING)
