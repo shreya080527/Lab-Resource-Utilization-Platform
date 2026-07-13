@@ -19,6 +19,8 @@ import { Badge } from "@/components/ui/badge";
 import { useRouter } from "@/store/router";
 import { ThemeToggle } from "@/components/shared/ThemeToggle";
 import { cn } from "@/lib/utils";
+import { useAsync } from "@/hooks/use-async";
+import { equipmentApi } from "@/lib/api/equipmentApi";
 
 // ---------------------------------------------------------------------------
 // LabFlow · public landing page
@@ -119,20 +121,7 @@ const ROLES: RoleInfo[] = [
   },
 ];
 
-const STATS: string[] = [
-  "6 roles supported",
-  "7 booking states",
-  "Real-time calendar",
-  "Utilization analytics",
-];
-
 const LIFECYCLE: string[] = ["PENDING", "CONFIRMED", "IN_PROGRESS", "COMPLETED"];
-
-const PREVIEW_STATS: { label: string; value: string }[] = [
-  { label: "Bookings this week", value: "128" },
-  { label: "Active equipment", value: "42" },
-  { label: "Avg utilization", value: "78%" },
-];
 
 const CHART_BARS: number[] = [40, 62, 50, 80, 58, 95, 70];
 
@@ -141,13 +130,26 @@ export default function LandingPage() {
   const goSignIn = () => navigate("/login");
   const goRegister = () => navigate("/register");
 
+  // Fetch real equipment count from the public GET /api/equipment/get-all-equipments
+  // endpoint (no auth required). The landing page is public, so we can't use
+  // dashboardApi.stats() which requires authentication.
+  const { data: equipment } = useAsync(
+    () => equipmentApi.getAllEquipment().catch(() => []),
+    [],
+  );
+  const equipmentCount = equipment?.length ?? 0;
+
   return (
     <div className="min-h-screen bg-background text-foreground">
       <TopNav onSignIn={goSignIn} onRegister={goRegister} />
 
       <main>
-        <Hero onGetStarted={goRegister} onSignIn={goSignIn} />
-        <StatStrip />
+        <Hero
+          onGetStarted={goRegister}
+          onSignIn={goSignIn}
+          equipmentCount={equipmentCount}
+        />
+        <StatStrip equipmentCount={equipmentCount} />
         <Features />
         <Roles />
         <BookingLifecycle />
@@ -216,9 +218,11 @@ function TopNav({
 function Hero({
   onGetStarted,
   onSignIn,
+  equipmentCount,
 }: {
   onGetStarted: () => void;
   onSignIn: () => void;
+  equipmentCount: number;
 }) {
   return (
     <section className="max-w-6xl mx-auto px-4 sm:px-6 py-16 sm:py-24">
@@ -263,7 +267,7 @@ function Hero({
         </div>
       </div>
 
-      <AppPreview />
+      <AppPreview equipmentCount={equipmentCount} />
     </section>
   );
 }
@@ -271,7 +275,12 @@ function Hero({
 // ---------------------------------------------------------------------------
 // App preview — abstract mini-dashboard mock inside a frosted panel
 // ---------------------------------------------------------------------------
-function AppPreview() {
+function AppPreview({ equipmentCount }: { equipmentCount: number }) {
+  const previewStats: { label: string; value: string }[] = [
+    { label: "Equipment", value: String(equipmentCount) },
+    { label: "Booking states", value: "7" },
+    { label: "User roles", value: "6" },
+  ];
   return (
     <div className="mt-14 sm:mt-20 rounded-[2rem] glass shadow-float overflow-hidden">
       <div className="grid grid-cols-1 sm:grid-cols-[64px_1fr]">
@@ -296,7 +305,7 @@ function AppPreview() {
         <div className="p-5 sm:p-6 space-y-4">
           {/* Stat tiles */}
           <div className="grid grid-cols-3 gap-3">
-            {PREVIEW_STATS.map((s) => (
+            {previewStats.map((s) => (
               <div
                 key={s.label}
                 className="rounded-xl bg-muted/30 border border-border/40 p-3"
@@ -373,20 +382,29 @@ function AppPreview() {
 // ---------------------------------------------------------------------------
 // Stat strip — understated row of muted facts
 // ---------------------------------------------------------------------------
-function StatStrip() {
+function StatStrip({ equipmentCount }: { equipmentCount: number }) {
+  const stats: { value: string; label: string }[] = [
+    { value: String(equipmentCount), label: "Equipment items" },
+    { value: "6", label: "User roles" },
+    { value: "7", label: "Booking states" },
+    { value: "24/7", label: "Always available" },
+  ];
   return (
     <section className="max-w-6xl mx-auto px-4 sm:px-6 py-10 sm:py-14">
       <div className="flex flex-col sm:flex-row items-stretch rounded-2xl glass shadow-soft overflow-hidden">
-        {STATS.map((s, i) => (
+        {stats.map((s, i) => (
           <div
-            key={s}
+            key={s.label}
             className={cn(
               "flex-1 px-4 py-5 sm:px-6 text-center",
               i > 0 && "border-t sm:border-t-0 sm:border-l border-border/60",
             )}
           >
-            <div className="text-xs uppercase tracking-wide text-muted-foreground">
-              {s}
+            <div className="text-2xl font-semibold tracking-tight text-foreground">
+              {s.value}
+            </div>
+            <div className="mt-0.5 text-xs uppercase tracking-wide text-muted-foreground">
+              {s.label}
             </div>
           </div>
         ))}

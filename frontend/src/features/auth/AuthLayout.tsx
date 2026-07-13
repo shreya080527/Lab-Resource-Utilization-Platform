@@ -15,9 +15,8 @@ export interface AuthLayoutProps {
 /**
  * AuthLayout — Apple-inspired split layout for unauthenticated pages.
  *
- * Left: calm-blue gradient brand panel with the LabFlow logo, tagline, and a
- * small "Demo accounts" card. Hidden on mobile, where a compact header takes
- * its place above the form card.
+ * Left: calm-blue gradient brand panel with the LabFlow logo and tagline.
+ * Hidden on mobile, where a compact header takes its place above the form card.
  *
  * Right: a frosted glass card (rounded-2xl, shadow-soft) that vertically
  * centers `children` on the viewport and renders `title` / `subtitle` above
@@ -65,25 +64,19 @@ export function AuthLayout({
           </p>
         </div>
 
-        {/* Demo accounts card */}
-        <div className="relative rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 p-5 max-w-sm">
-          <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-white/70 mb-3">
+        {/* Feature bullets */}
+        <div className="relative rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 p-5 max-w-sm space-y-2.5 text-sm text-white/85">
+          <div className="flex items-center gap-2.5">
             <span className="size-1.5 rounded-full bg-emerald-300" />
-            Demo accounts
+            Conflict-aware booking with auto-waitlist
           </div>
-          <div className="space-y-3 text-sm">
-            <DemoAccount
-              role="Researcher"
-              email="researcher@demo.com"
-              password="password"
-              otp="123456"
-            />
-            <DemoAccount
-              role="Lab Manager"
-              email="manager@demo.com"
-              password="password"
-              otp="123456"
-            />
+          <div className="flex items-center gap-2.5">
+            <span className="size-1.5 rounded-full bg-emerald-300" />
+            Role-based access for researchers and managers
+          </div>
+          <div className="flex items-center gap-2.5">
+            <span className="size-1.5 rounded-full bg-emerald-300" />
+            Real-time utilization analytics
           </div>
         </div>
       </aside>
@@ -123,35 +116,6 @@ export function AuthLayout({
               {footer}
             </div>
           ) : null}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function DemoAccount({
-  role,
-  email,
-  password,
-  otp,
-}: {
-  role: string;
-  email: string;
-  password: string;
-  otp: string;
-}) {
-  return (
-    <div className="flex items-center justify-between gap-3">
-      <div>
-        <div className="text-white/60 text-xs">{role}</div>
-        <div className="font-medium text-white">{email}</div>
-      </div>
-      <div className="text-right text-white/70 text-xs leading-relaxed">
-        <div>
-          pw <span className="font-mono text-white/90">{password}</span>
-        </div>
-        <div>
-          otp <span className="font-mono text-white/90">{otp}</span>
         </div>
       </div>
     </div>

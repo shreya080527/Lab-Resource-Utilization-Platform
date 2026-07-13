@@ -32,6 +32,9 @@ import {
   endOfDay,
   startOfDay,
   addDays,
+  addMonths,
+  startOfMonth,
+  endOfMonth,
 } from "date-fns";
 import { toast } from "sonner";
 
@@ -55,6 +58,7 @@ import {
   CalendarView,
   type CalendarEventItem,
 } from "@/components/shared/CalendarView";
+import { BookingDateGrid } from "@/components/shared/BookingDateGrid";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 
 import { Card } from "@/components/ui/card";
@@ -420,8 +424,9 @@ function OverviewTab({
 // ---------------------------------------------------------------------------
 
 function CalendarTab({ equipmentId }: { equipmentId: number }) {
-  // Weekly window for the calendar — Mon–Sun, time-boxed.
   const now = React.useMemo(() => new Date(), []);
+
+  // Weekly window for the time-grid calendar — Mon–Sun, time-boxed.
   const weekStart = React.useMemo(
     () => startOfWeek(now, { weekStartsOn: 1 }),
     [now],
@@ -433,6 +438,20 @@ function CalendarTab({ equipmentId }: { equipmentId: number }) {
   const startIso = toBackendDateTime(weekStart);
   const endIso = toBackendDateTime(weekEnd);
 
+  // Wider window for the GitHub-style date grid — start of this month to end
+  // of next month (so users can browse 2 months of availability).
+  const gridStart = React.useMemo(
+    () => startOfWeek(startOfMonth(now), { weekStartsOn: 1 }),
+    [now],
+  );
+  const gridEnd = React.useMemo(
+    () => endOfDay(endOfWeek(endOfMonth(addMonths(now, 1)), { weekStartsOn: 1 })),
+    [now],
+  );
+  const gridStartIso = toBackendDateTime(gridStart);
+  const gridEndIso = toBackendDateTime(gridEnd);
+
+  // Weekly bookings for the time-grid calendar.
   const {
     data: bookings,
     loading,
@@ -441,6 +460,16 @@ function CalendarTab({ equipmentId }: { equipmentId: number }) {
   } = useAsync(
     () => bookingApi.equipmentCalendar({ equipmentId, start: startIso, end: endIso }),
     [equipmentId, startIso, endIso],
+  );
+
+  // Wider bookings for the date-grid (2 months). Separate fetch so the weekly
+  // calendar stays fast.
+  const {
+    data: gridBookings,
+    loading: gridLoading,
+  } = useAsync(
+    () => bookingApi.equipmentCalendar({ equipmentId, start: gridStartIso, end: gridEndIso }),
+    [equipmentId, gridStartIso, gridEndIso],
   );
 
   const events: CalendarEventItem[] = React.useMemo(() => {
@@ -471,57 +500,81 @@ function CalendarTab({ equipmentId }: { equipmentId: number }) {
     : ["PENDING", "CONFIRMED", "IN_PROGRESS", "COMPLETED"];
 
   return (
-    <div className="flex flex-col gap-3">
-      <div className="flex flex-wrap items-end justify-between gap-2">
-        <div>
-          <h3 className="flex items-center gap-2 text-lg font-semibold tracking-tight text-foreground">
-            <CalendarIcon className="size-4 text-primary" />
-            Bookings this week
-          </h3>
-          <p className="text-sm text-muted-foreground">
-            All bookings on this equipment for the current week (Mon–Sun).
-          </p>
+    <div className="flex flex-col gap-6">
+      {/* Weekly time-grid calendar */}
+      <div className="flex flex-col gap-3">
+        <div className="flex flex-wrap items-end justify-between gap-2">
+          <div>
+            <h3 className="flex items-center gap-2 text-lg font-semibold tracking-tight text-foreground">
+              <CalendarIcon className="size-4 text-primary" />
+              Bookings this week
+            </h3>
+            <p className="text-sm text-muted-foreground">
+              All bookings on this equipment for the current week (Mon–Sun).
+            </p>
+          </div>
+          {loading && (
+            <span className="text-xs text-muted-foreground">Loading bookings…</span>
+          )}
         </div>
-        {loading && (
-          <span className="text-xs text-muted-foreground">Loading bookings…</span>
+
+        {loading && events.length === 0 ? (
+          <ListSkeleton count={2} />
+        ) : error && events.length === 0 ? (
+          <ErrorInline error={error} onRetry={refetch} />
+        ) : (
+          <>
+            <CalendarView
+              events={events}
+              onSelect={onSelectEvent}
+              emptyHint="No bookings this week."
+            />
+            {/* Legend */}
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 rounded-xl border border-border/60 bg-muted/20 px-4 py-2.5">
+              <span className="text-xs font-medium text-muted-foreground">
+                Legend:
+              </span>
+              {legendStatuses.map((s) => {
+                const cfg = bookingStatusConfig(s);
+                if (!cfg) return null;
+                return (
+                  <span
+                    key={s}
+                    className="inline-flex items-center gap-1.5 text-xs text-muted-foreground"
+                  >
+                    <span
+                      className="size-2 rounded-full"
+                      style={{ backgroundColor: cfg.color }}
+                    />
+                    {cfg.label}
+                  </span>
+                );
+              })}
+            </div>
+          </>
         )}
       </div>
 
-      {loading && events.length === 0 ? (
-        <ListSkeleton count={2} />
-      ) : error && events.length === 0 ? (
-        <ErrorInline error={error} onRetry={refetch} />
-      ) : (
-        <>
-          <CalendarView
-            events={events}
-            onSelect={onSelectEvent}
-            emptyHint="No bookings this week."
-          />
-          {/* Legend */}
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 rounded-xl border border-border/60 bg-muted/20 px-4 py-2.5">
-            <span className="text-xs font-medium text-muted-foreground">
-              Legend:
-            </span>
-            {legendStatuses.map((s) => {
-              const cfg = bookingStatusConfig(s);
-              if (!cfg) return null;
-              return (
-                <span
-                  key={s}
-                  className="inline-flex items-center gap-1.5 text-xs text-muted-foreground"
-                >
-                  <span
-                    className="size-2 rounded-full"
-                    style={{ backgroundColor: cfg.color }}
-                  />
-                  {cfg.label}
-                </span>
-              );
-            })}
+      {/* GitHub-style date grid — shows booked/free days across 2 months */}
+      <div className="flex flex-col gap-3">
+        <div>
+          <h3 className="flex items-center gap-2 text-lg font-semibold tracking-tight text-foreground">
+            <CalendarIcon className="size-4 text-primary" />
+            Availability overview
+          </h3>
+          <p className="text-sm text-muted-foreground">
+            Green = available, blue = booked, amber = pending. Click any day to
+            see its bookings.
+          </p>
+        </div>
+        {gridLoading ? (
+          <CardSkeleton className="rounded-2xl" />
+        ) : (
+          <div className="rounded-2xl border border-border/60 bg-card p-4 sm:p-5">
+            <BookingDateGrid bookings={gridBookings ?? []} />
           </div>
-        </>
-      )}
+        )}
+      </div>
     </div>
   );
 }

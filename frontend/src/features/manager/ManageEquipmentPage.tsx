@@ -10,6 +10,7 @@ import {
   Network,
   UserCircle,
   Tag as TagIcon,
+  Eye,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -151,6 +152,7 @@ function StatusSelect({
 function RowActions({
   equipment,
   statusBusy,
+  onView,
   onEdit,
   onStatusChange,
   onDelete,
@@ -158,6 +160,7 @@ function RowActions({
 }: {
   equipment: Equipment;
   statusBusy: boolean;
+  onView: () => void;
   onEdit: () => void;
   onStatusChange: (status: EquipmentStatus) => void;
   onDelete: () => void;
@@ -165,6 +168,17 @@ function RowActions({
 }) {
   return (
     <div className="flex items-center gap-1.5">
+      <Button
+        variant="ghost"
+        size="sm"
+        className="size-8 rounded-lg p-0"
+        onClick={onView}
+        aria-label={`View ${equipment.equipmentName}`}
+        title="View details, tags, documents, calibration"
+      >
+        <Eye className="size-4" />
+      </Button>
+
       <Button
         variant="ghost"
         size="sm"
@@ -206,6 +220,7 @@ function EquipmentList({
   loading,
   error,
   statusBusyId,
+  onView,
   onEdit,
   onStatusChange,
   onDelete,
@@ -216,6 +231,7 @@ function EquipmentList({
   loading: boolean;
   error: string | null;
   statusBusyId: number | null;
+  onView: (e: Equipment) => void;
   onEdit: (e: Equipment) => void;
   onStatusChange: (e: Equipment, status: EquipmentStatus) => void;
   onDelete: (e: Equipment) => void;
@@ -275,19 +291,23 @@ function EquipmentList({
             {data.map((e) => (
               <TableRow key={e.id} className="hover:bg-muted/40">
                 <TableCell className="pl-4">
-                  <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => onView(e)}
+                    className="flex items-center gap-3 text-left transition-opacity hover:opacity-80"
+                    title={`View ${e.equipmentName} details`}
+                  >
                     <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary ring-1 ring-primary/15">
                       <Boxes className="size-4" />
                     </div>
                     <div className="min-w-0">
-                      <p className="truncate text-sm font-semibold text-foreground">
+                      <p className="truncate text-sm font-semibold text-foreground hover:text-primary transition-colors">
                         {e.equipmentName}
                       </p>
                       <p className="mt-0.5 truncate text-xs text-muted-foreground">
                         S/N {e.serial} · {e.category}
                       </p>
                     </div>
-                  </div>
+                  </button>
                 </TableCell>
                 <TableCell className="text-sm text-muted-foreground">
                   {e.institution?.name ?? "—"}
@@ -309,6 +329,7 @@ function EquipmentList({
                     <RowActions
                       equipment={e}
                       statusBusy={statusBusyId === e.id}
+                      onView={() => onView(e)}
                       onEdit={() => onEdit(e)}
                       onStatusChange={(s) => onStatusChange(e, s)}
                       onDelete={() => onDelete(e)}
@@ -329,12 +350,16 @@ function EquipmentList({
             className="gap-3 rounded-2xl border-border/60 p-4 shadow-soft"
           >
             <div className="flex items-start justify-between gap-3">
-              <div className="flex min-w-0 items-start gap-3">
+              <button
+                onClick={() => onView(e)}
+                className="flex min-w-0 items-start gap-3 text-left transition-opacity hover:opacity-80"
+                title={`View ${e.equipmentName} details`}
+              >
                 <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary ring-1 ring-primary/15">
                   <Boxes className="size-5" />
                 </div>
                 <div className="min-w-0">
-                  <p className="truncate text-sm font-semibold text-foreground">
+                  <p className="truncate text-sm font-semibold text-foreground hover:text-primary transition-colors">
                     {e.equipmentName}
                   </p>
                   <p className="mt-0.5 truncate text-xs text-muted-foreground">
@@ -344,7 +369,7 @@ function EquipmentList({
                     <StatusBadge status={e.status} type="equipment" />
                   </div>
                 </div>
-              </div>
+              </button>
             </div>
 
             <div className="grid grid-cols-1 gap-2 rounded-xl bg-muted/30 px-3 py-2.5 text-xs">
@@ -377,15 +402,26 @@ function EquipmentList({
             </div>
 
             <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
-              <Button
-                variant="ghost"
-                size="sm"
-                className="gap-1.5 rounded-lg"
-                onClick={() => onEdit(e)}
-              >
-                <Pencil className="size-3.5" />
-                Edit
-              </Button>
+              <div className="flex items-center gap-1.5">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="gap-1.5 rounded-lg"
+                  onClick={() => onView(e)}
+                >
+                  <Eye className="size-3.5" />
+                  View
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="gap-1.5 rounded-lg"
+                  onClick={() => onEdit(e)}
+                >
+                  <Pencil className="size-3.5" />
+                  Edit
+                </Button>
+              </div>
               <div className="flex items-center gap-1.5">
                 <StatusSelect
                   equipment={e}
@@ -476,6 +512,8 @@ export default function ManageEquipmentPage() {
   const goAdd = () => navigate("/manager/equipment/new");
   const goEdit = (e: Equipment) =>
     navigate(`/manager/equipment/${e.id}/edit`);
+  const goView = (e: Equipment) =>
+    navigate(`/equipment/${e.id}`);
 
   return (
     <div className="flex flex-col gap-6">
@@ -502,6 +540,7 @@ export default function ManageEquipmentPage() {
             loading={allAsync.loading}
             error={allAsync.error}
             statusBusyId={statusBusyId}
+            onView={goView}
             onEdit={goEdit}
             onStatusChange={handleStatusChange}
             onDelete={(e) => setDeleteTarget(e)}
@@ -516,6 +555,7 @@ export default function ManageEquipmentPage() {
             loading={mineAsync.loading}
             error={mineAsync.error}
             statusBusyId={statusBusyId}
+            onView={goView}
             onEdit={goEdit}
             onStatusChange={handleStatusChange}
             onDelete={(e) => setDeleteTarget(e)}

@@ -160,15 +160,6 @@ export default function VerifyOtpPage() {
       }
     >
       <form onSubmit={handleVerify} className="space-y-6" noValidate>
-        {/* Demo OTP hint chip */}
-        <div className="flex items-center justify-center">
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-muted/40 px-3 py-1 text-xs text-muted-foreground">
-            <KeyRound className="size-3" />
-            Demo OTP:{" "}
-            <span className="font-mono font-medium text-foreground">123456</span>
-          </span>
-        </div>
-
         {/* OTP input */}
         <div className="space-y-2">
           <Label htmlFor="otp" className="justify-center text-center">

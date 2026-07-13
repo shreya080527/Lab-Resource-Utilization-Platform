@@ -6,10 +6,8 @@
   <component name="ChangeListManager">
     <list default="true" id="cac17fe5-82bb-490f-9cf7-d590a981792b" name="Changes" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/example/lab_resource_platform/controller/BookingController.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/example/lab_resource_platform/controller/BookingController.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/example/lab_resource_platform/dto/RecurringBookingResponse.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/example/lab_resource_platform/dto/RecurringBookingResponse.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/example/lab_resource_platform/dto/ResearcherDashboardDto.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/example/lab_resource_platform/dto/ResearcherDashboardDto.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/example/lab_resource_platform/service/BookingService.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/example/lab_resource_platform/service/BookingService.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/example/lab_resource_platform/controller/InstitutionController.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/example/lab_resource_platform/controller/InstitutionController.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/example/lab_resource_platform/controller/UtilizationController.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/example/lab_resource_platform/controller/UtilizationController.java" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />

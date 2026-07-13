@@ -105,15 +105,6 @@ export default function ResetPasswordPage() {
       }
     >
       <form onSubmit={handleSubmit} className="space-y-5" noValidate>
-        {/* Demo OTP hint chip */}
-        <div className="flex items-center justify-center">
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-muted/40 px-3 py-1 text-xs text-muted-foreground">
-            <KeyRound className="size-3" />
-            Demo OTP:{" "}
-            <span className="font-mono font-medium text-foreground">123456</span>
-          </span>
-        </div>
-
         {/* Email (editable, prefilled) */}
         <div className="space-y-1.5">
           <Label htmlFor="email">Email</Label>

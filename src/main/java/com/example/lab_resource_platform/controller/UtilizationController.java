@@ -44,7 +44,7 @@ public class UtilizationController {
     }
 
     @GetMapping("/institution")
-    @PreAuthorize("hasAnyRole('INSTITUTION_ADMIN','SYSTEM_ADMIN')")
+    @PreAuthorize("hasAnyRole('LAB_MANAGER','INSTITUTION_ADMIN','SYSTEM_ADMIN')")
     public ResponseEntity<Map<String, Object>> institution(
             @RequestParam Long institutionId,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime start,

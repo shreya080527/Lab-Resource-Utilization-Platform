@@ -11,9 +11,6 @@ import { useRouter } from "@/store/router";
 import { ROLE_PERMISSIONS } from "@/config/rolePermissions";
 import { AuthLayout } from "./AuthLayout";
 
-const DEMO_RESEARCHER = { email: "researcher@demo.com", password: "password" };
-const DEMO_MANAGER = { email: "manager@demo.com", password: "password" };
-
 export default function LoginPage() {
   const login = useAuthStore((s) => s.login);
   const { navigate } = useRouter();
@@ -53,11 +50,6 @@ export default function LoginPage() {
     }
   }
 
-  function fillDemo(credentials: { email: string; password: string }) {
-    setEmail(credentials.email);
-    setPassword(credentials.password);
-  }
-
   return (
     <AuthLayout
       title="Welcome back"
@@ -76,25 +68,6 @@ export default function LoginPage() {
       }
     >
       <form onSubmit={handleSubmit} className="space-y-5" noValidate>
-        {/* Quick-fill demo chips */}
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-xs text-muted-foreground">Try a demo:</span>
-          <button
-            type="button"
-            onClick={() => fillDemo(DEMO_RESEARCHER)}
-            className="rounded-full border border-border bg-muted/40 px-3 py-1 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-all duration-200"
-          >
-            Researcher
-          </button>
-          <button
-            type="button"
-            onClick={() => fillDemo(DEMO_MANAGER)}
-            className="rounded-full border border-border bg-muted/40 px-3 py-1 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-all duration-200"
-          >
-            Lab Manager
-          </button>
-        </div>
-
         {/* Email */}
         <div className="space-y-1.5">
           <Label htmlFor="email">Email</Label>

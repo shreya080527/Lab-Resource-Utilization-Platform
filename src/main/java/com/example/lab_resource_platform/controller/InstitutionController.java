@@ -20,7 +20,7 @@ public class InstitutionController {
     private final InstitutionService institutionService;
 
     @PostMapping
-    @PreAuthorize("hasAnyRole('SYSTEM_ADMIN', 'INSTITUTION_ADMIN')")
+    @PreAuthorize("hasAnyRole('LAB_MANAGER','SYSTEM_ADMIN', 'INSTITUTION_ADMIN')")
     public ResponseEntity<InstitutionResponse> create(@Valid @RequestBody InstitutionRequest req) {
         return ResponseEntity.status(HttpStatus.CREATED).body(institutionService.create(req));
     }
