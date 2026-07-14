@@ -1,16 +1,18 @@
 package com.example.lab_resource_platform.repository;
 
-import com.example.lab_resource_platform.entity.Bookings.Booking;
-import com.example.lab_resource_platform.entity.Bookings.BookingStatus;
-import jakarta.persistence.LockModeType;
+import java.time.LocalDateTime;
+import java.util.List;
+
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
-import java.time.LocalDateTime;
-import java.util.List;
+import com.example.lab_resource_platform.entity.Bookings.Booking;
+import com.example.lab_resource_platform.entity.Bookings.BookingStatus;
+
+import jakarta.persistence.LockModeType;
 
 @Repository
 public interface BookingRepository extends JpaRepository<Booking, Long> {
@@ -56,5 +58,7 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
 
     @Query("SELECT b FROM Booking b WHERE b.parentBooking.id = :parentId")
     List<Booking> findByParentBookingId(@Param("parentId") Long parentId);
+    
+    List<Booking> findByStatusAndEndTimeBetween(BookingStatus status, LocalDateTime start, LocalDateTime end);
 }
 

@@ -1,13 +1,30 @@
 package com.example.lab_resource_platform.service;
 
 
-import com.example.lab_resource_platform.dto.*;
+import java.time.Duration;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
+
+import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import com.example.lab_resource_platform.dto.BookingResponse;
+import com.example.lab_resource_platform.dto.EquipmentUtilizationDTO;
+import com.example.lab_resource_platform.dto.RecurringBookingRequest;
+import com.example.lab_resource_platform.dto.RecurringBookingResponse;
+import com.example.lab_resource_platform.dto.ResearcherDashboardDto;
+import com.example.lab_resource_platform.dto.WaitlistResponse;
 import com.example.lab_resource_platform.entity.BookingAudit;
+import com.example.lab_resource_platform.entity.Waitlist;
 import com.example.lab_resource_platform.entity.Bookings.Booking;
 import com.example.lab_resource_platform.entity.Bookings.BookingStatus;
-import com.example.lab_resource_platform.entity.Waitlist;
 import com.example.lab_resource_platform.entity.equipment.Equipment;
 import com.example.lab_resource_platform.entity.equipment.EquipmentStatus;
+import com.example.lab_resource_platform.entity.user.Role;
 import com.example.lab_resource_platform.entity.user.User;
 import com.example.lab_resource_platform.entity.user.UserPrincipal;
 import com.example.lab_resource_platform.repository.BookingAuditRepo;
@@ -15,17 +32,9 @@ import com.example.lab_resource_platform.repository.BookingRepository;
 import com.example.lab_resource_platform.repository.WaitlistRepository;
 import com.example.lab_resource_platform.repository.auth.UserRepo;
 import com.example.lab_resource_platform.repository.equipment.EquipmentRepo;
-import lombok.RequiredArgsConstructor;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
+import com.example.lab_resource_platform.service.email.EmailService;
 
-import java.time.Duration;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
+import lombok.RequiredArgsConstructor;
 
 @Service
 @RequiredArgsConstructor
@@ -35,13 +44,14 @@ public class BookingService {
     private final EquipmentRepo equipmentRepo;
     private final UserRepo userRepo;
     private final BookingAuditRepo auditRepo;
+    private final EmailService emailService;
 
     private final List<BookingStatus> activeStatuses = List.of(BookingStatus.PENDING, BookingStatus.CONFIRMED);
     private final List<BookingStatus> utilizationStatuses = List.of(
             BookingStatus.CONFIRMED, BookingStatus.IN_PROGRESS, BookingStatus.COMPLETED);
 
     // ─────────── CREATE ───────────
-
+    
     @Transactional
     public Booking createBooking(Long userId, Long equipmentId, LocalDateTime start, LocalDateTime end) {
         User user = userRepo.findById(userId).orElseThrow(() -> new RuntimeException("User not found"));
@@ -63,6 +73,29 @@ public class BookingService {
                 .status(BookingStatus.PENDING)
                 .build();
         booking = bookingRepo.save(booking);
+        
+        //send email to manager
+        List<String> managerEmails = userRepo.findEmailsByRoleAndUserDepartment(
+                Role.LAB_MANAGER,
+                user.getId()
+        );
+
+        if (managerEmails.isEmpty()) {
+            throw new IllegalStateException("No lab manager found for the user's department.");
+        }      
+        try {
+               if (!managerEmails.isEmpty()) {
+                 emailService.sendBookingNotificationEmail(
+                        managerEmails.get(0),
+                        user.getUsername(),
+                        equipment.getEquipmentName(),
+                        start.toString(),
+                        end.toString()
+                );
+            }
+        } catch (Exception e) {
+        	throw new IllegalStateException("Failed to send notification email to the lab manager.");
+        }
         writeAudit(booking, "CREATED", null, "PENDING", getCurrentUser(), null);
         return booking;
     }
@@ -120,18 +153,59 @@ public class BookingService {
             default -> throw new IllegalArgumentException("Unknown recurrence pattern: " + pattern);
         };
     }
+    
+    //Send Expiring booking email notifications
+    @Scheduled(cron = "0 45 22 * * ?") // Runs automatically every day at 8:00 AM
+	 @Transactional(readOnly = true)
+	 public void sendExpirationReminders() {
+	     LocalDateTime tomorrowStart = LocalDateTime.now().plusDays(1).toLocalDate().atStartOfDay();
+	     LocalDateTime tomorrowEnd = tomorrowStart.plusDays(1).minusNanos(1);
+	
+	     // Fetch all confirmed active reservations that will close within tomorrow's 24-hour block
+	     List<Booking> expiringBookings = bookingRepo.findByStatusAndEndTimeBetween(
+	             BookingStatus.CONFIRMED, tomorrowStart, tomorrowEnd);
+	
+	     for (Booking b : expiringBookings) {
+	         try {
+	             emailService.sendBookingExpirationWarningEmail(
+	                 b.getUser().getEmail(),
+	                 b.getUser().getUsername(),
+	                 b.getEquipment().getEquipmentName(),
+	                 b.getEndTime().toString()
+	             );
+	         } catch (Exception e) {
+	             System.err.println("Failed to send expiration email for booking ID " + b.getId() + ": " + e.getMessage());
+	         }
+	     }
+	 }
 
     // ─────────── LIFECYCLE ───────────
 
     @Transactional
     public Booking accept(Long bookingId) {
         Booking b = findBooking(bookingId);
-        if (b.getStatus() != BookingStatus.PENDING)
-            throw new IllegalStateException("Cannot accept — booking not PENDING. Current: " + b.getStatus());
+        if (b.getStatus() != BookingStatus.PENDING) {
+			throw new IllegalStateException("Cannot accept — booking not PENDING. Current: " + b.getStatus());
+		}
         BookingStatus old = b.getStatus();
         b.setStatus(BookingStatus.CONFIRMED);
         b.setUpdatedBy(getCurrentUser());
         b = bookingRepo.save(b);
+        
+      //Send Accept Email Notification
+        try {
+            emailService.sendBookingAcceptedEmail(
+                b.getUser().getEmail(),
+                b.getUser().getUsername(),
+                b.getEquipment().getEquipmentName(),
+                b.getStartTime().toString(),
+                b.getEndTime().toString()
+            );
+        } catch (Exception e) {
+        	throw new IllegalStateException("Failed to dispatch acceptance notification mail.");
+            
+        }
+        
         writeAudit(b, "ACCEPTED", old.name(), "CONFIRMED", getCurrentUser(), "Approved by manager");
         return b;
     }
@@ -139,12 +213,26 @@ public class BookingService {
     @Transactional
     public Booking reject(Long bookingId) {
         Booking b = findBooking(bookingId);
-        if (b.getStatus() != BookingStatus.PENDING)
-            throw new IllegalStateException("Cannot reject — booking not PENDING. Current: " + b.getStatus());
+        if (b.getStatus() != BookingStatus.PENDING) {
+			throw new IllegalStateException("Cannot reject — booking not PENDING. Current: " + b.getStatus());
+		}
         BookingStatus old = b.getStatus();
         b.setStatus(BookingStatus.REJECTED);
         b.setUpdatedBy(getCurrentUser());
         b = bookingRepo.save(b);
+        
+        //Send Rejection Email Notification
+        try {
+            emailService.sendBookingRejectedEmail(
+                b.getUser().getEmail(),
+                b.getUser().getUsername(),
+                b.getEquipment().getEquipmentName(),
+                b.getStartTime().toString(),
+                b.getEndTime().toString()
+            );
+        } catch (Exception e) {
+        	throw new IllegalStateException("Failed to dispatch rejection notification mail.");          
+        }
         writeAudit(b, "REJECTED", old.name(), "REJECTED", getCurrentUser(), null);
         promoteNextEligibleWaitlist(b.getEquipment().getId());
         return b;
@@ -153,8 +241,9 @@ public class BookingService {
     @Transactional
     public Booking cancel(Long bookingId) {
         Booking b = findBooking(bookingId);
-        if (b.getStatus() != BookingStatus.PENDING && b.getStatus() != BookingStatus.CONFIRMED)
-            throw new IllegalStateException("Cannot cancel — booking not PENDING/CONFIRMED. Current: " + b.getStatus());
+        if (b.getStatus() != BookingStatus.PENDING && b.getStatus() != BookingStatus.CONFIRMED) {
+			throw new IllegalStateException("Cannot cancel — booking not PENDING/CONFIRMED. Current: " + b.getStatus());
+		}
         BookingStatus old = b.getStatus();
         b.setStatus(BookingStatus.CANCELLED);
         b.setUpdatedBy(getCurrentUser());
@@ -167,8 +256,9 @@ public class BookingService {
     @Transactional
     public Booking start(Long bookingId) {
         Booking b = findBooking(bookingId);
-        if (b.getStatus() != BookingStatus.CONFIRMED)
-            throw new IllegalStateException("Cannot start — booking not CONFIRMED. Current: " + b.getStatus());
+        if (b.getStatus() != BookingStatus.CONFIRMED) {
+			throw new IllegalStateException("Cannot start — booking not CONFIRMED. Current: " + b.getStatus());
+		}
         BookingStatus old = b.getStatus();
         b.setStatus(BookingStatus.IN_PROGRESS);
         b.setUpdatedBy(getCurrentUser());
@@ -180,8 +270,9 @@ public class BookingService {
     @Transactional
     public Booking complete(Long bookingId) {
         Booking b = findBooking(bookingId);
-        if (b.getStatus() != BookingStatus.IN_PROGRESS)
-            throw new IllegalStateException("Cannot complete — booking not IN_PROGRESS. Current: " + b.getStatus());
+        if (b.getStatus() != BookingStatus.IN_PROGRESS) {
+			throw new IllegalStateException("Cannot complete — booking not IN_PROGRESS. Current: " + b.getStatus());
+		}
         BookingStatus old = b.getStatus();
         b.setStatus(BookingStatus.COMPLETED);
         b.setUpdatedBy(getCurrentUser());
@@ -194,8 +285,9 @@ public class BookingService {
     @Transactional
     public Booking noShow(Long bookingId) {
         Booking b = findBooking(bookingId);
-        if (b.getStatus() != BookingStatus.CONFIRMED)
-            throw new IllegalStateException("Cannot mark No-Show — booking must be CONFIRMED. Current: " + b.getStatus());
+        if (b.getStatus() != BookingStatus.CONFIRMED) {
+			throw new IllegalStateException("Cannot mark No-Show — booking must be CONFIRMED. Current: " + b.getStatus());
+		}
         BookingStatus old = b.getStatus();
         b.setStatus(BookingStatus.NO_SHOW);
         b.setUpdatedBy(getCurrentUser());
@@ -245,12 +337,15 @@ public class BookingService {
         Waitlist target = (waitlistId != null)
                 ? queue.stream().filter(w -> w.getId().equals(waitlistId)).findFirst().orElse(null)
                 : queue.isEmpty() ? null : queue.get(0);
-        if (target == null) return false;
+        if (target == null) {
+			return false;
+		}
 
         boolean blocked = bookingRepo.existsOverlappingActiveBookingsForUpdate(
                 equipmentId, target.getStartTime(), target.getEndTime(), activeStatuses);
-        if (blocked)
-            throw new IllegalStateException("Cannot promote — target slot is still blocked");
+        if (blocked) {
+			throw new IllegalStateException("Cannot promote — target slot is still blocked");
+		}
 
         Booking promoted = Booking.builder()
                 .user(target.getUser()).equipment(target.getEquipment())
@@ -310,8 +405,9 @@ public class BookingService {
 
     @Transactional
     public void removeWaitlistEntry(Long waitlistId) {
-        if (!waitlistRepo.existsById(waitlistId))
-            throw new RuntimeException("Waitlist entry not found: " + waitlistId);
+        if (!waitlistRepo.existsById(waitlistId)) {
+			throw new RuntimeException("Waitlist entry not found: " + waitlistId);
+		}
         waitlistRepo.deleteById(waitlistId);
     }
 
@@ -353,7 +449,9 @@ public class BookingService {
 
     private User getCurrentUser() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        if (auth == null || !(auth.getPrincipal() instanceof UserPrincipal)) return null;
+        if (auth == null || !(auth.getPrincipal() instanceof UserPrincipal)) {
+			return null;
+		}
         UserPrincipal principal = (UserPrincipal) auth.getPrincipal();
         return userRepo.findByEmail(principal.getUsername()).orElse(null);
     }
