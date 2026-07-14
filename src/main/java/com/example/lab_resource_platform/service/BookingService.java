@@ -155,7 +155,7 @@ public class BookingService {
     }
     
     //Send Expiring booking email notifications
-    @Scheduled(cron = "0 45 22 * * ?") // Runs automatically every day at 8:00 AM
+    @Scheduled(cron = "0 0 8 * * ?") // Runs automatically every day at 8:00 AM
 	 @Transactional(readOnly = true)
 	 public void sendExpirationReminders() {
 	     LocalDateTime tomorrowStart = LocalDateTime.now().plusDays(1).toLocalDate().atStartOfDay();
