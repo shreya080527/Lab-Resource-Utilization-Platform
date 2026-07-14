@@ -65,6 +65,7 @@ function navFor(role: Role): NavItem[] {
         { label: "Bookings", to: "/manager/bookings", icon: ClipboardList, match: ["/manager/bookings"] },
         { label: "Calendar", to: "/manager/calendar", icon: CalendarDays, match: ["/manager/calendar"] },
         { label: "Utilization", to: "/manager/utilization", icon: BarChart3, match: ["/manager/utilization"] },
+        { label: "Utilization Dashboard", to: "/manager/utilization-dashboard", icon: BarChart3, match: ["/manager/utilization-dashboard"] },
         { label: "Waitlist", to: "/manager/waitlist", icon: ListOrdered, match: ["/manager/waitlist"] },
         // Calibrations Due badge count is injected by the AppShell component
         // (sourced from dashboardApi.stats().calibrationsDueIn30Days) — defaults to 0.
@@ -75,8 +76,16 @@ function navFor(role: Role): NavItem[] {
     case "INSTITUTION_ADMIN":
       return [
         { label: "Institutions", to: "/admin/institutions", icon: Building2, match: ["/admin/institutions"] },
+        { label: "Manage Equipment", to: "/manager/equipment", icon: Microscope, match: ["/manager/equipment", "/manager/equipment/new"] },
         { label: "Browse", to: "/browse", icon: Search, match: ["/browse"] },
         { label: "Equipment", to: "/equipment", icon: Microscope, match: ["/equipment"] },
+        { label: "Utilization Dashboard", to: "/manager/utilization-dashboard", icon: BarChart3, match: ["/manager/utilization-dashboard"] },
+      ];
+    case "DEPARTMENT_HEAD":
+      return [
+        { label: "Browse", to: "/browse", icon: Search, match: ["/browse"] },
+        { label: "Equipment", to: "/equipment", icon: Microscope, match: ["/equipment"] },
+        { label: "Utilization Dashboard", to: "/manager/utilization-dashboard", icon: BarChart3, match: ["/manager/utilization-dashboard"] },
       ];
     default:
       return [
