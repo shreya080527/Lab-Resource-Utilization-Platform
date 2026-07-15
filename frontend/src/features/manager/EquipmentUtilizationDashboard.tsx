@@ -508,187 +508,157 @@ function FilterBar({
 }
 
 // ---------------------------------------------------------------------------
-// Heatmap Component - Enhanced UI
+// GitHub-Style Heatmap Component
 // ---------------------------------------------------------------------------
 
 function UtilizationHeatmap({ data }: { data: HeatmapReport }) {
-  const hours = Array.from({ length: 24 }, (_, i) => i);
-  const days = DAY_LABELS;
-  const [hoveredCell, setHoveredCell] = React.useState<{day: string; hour: number; hours: number} | null>(null);
+  const [hoveredCell, setHoveredCell] = React.useState<{ day: string; week: number; hours: number; count: number } | null>(null);
 
-  const heatmapData = React.useMemo(() => {
-    const map = new Map<string, number>();
+  // Build weekly aggregation
+  const weeklyData = React.useMemo(() => {
+    // Group by week (each 24-hour block is one "week" since we have 7 days × 24 hours)
+    const weeks = Math.ceil(data.heatmap.length / (7 * 24)) || 1;
+    const grid: { hours: number; count: number }[][] = Array.from({ length: weeks }, () =>
+      Array.from({ length: 7 }, () => ({ hours: 0, count: 0 }))
+    );
+
     data.heatmap.forEach((point) => {
-      const key = `${dayIdx(point.dayOfWeek)}-${point.hourOfDay}`;
-      map.set(key, point.bookedHours);
+      const dayIndex = dayIdx(point.dayOfWeek);
+      if (dayIndex < 0) return;
+      const hourIndex = Math.max(0, Math.min(23, point.hourOfDay));
+      const weekIndex = Math.floor(hourIndex / 24);
+      if (weekIndex < grid.length) {
+        grid[weekIndex][dayIndex].hours += point.bookedHours;
+        grid[weekIndex][dayIndex].count += point.bookingCount;
+      }
     });
-    return map;
+
+    return grid;
   }, [data.heatmap]);
 
-  const maxHours = Math.max(...data.heatmap.map((h) => h.bookedHours), 1);
+  const maxHours = Math.max(...weeklyData.flat().map((d) => d.hours), 1);
 
-  // Enhanced color gradient with better visual distinction
-  const getColor = (hours: number, hovered = false) => {
-    const intensity = maxHours > 0 ? hours / maxHours : 0;
-    
-    if (hours === 0) {
-      return {
-        bg: "bg-slate-100 dark:bg-slate-800/50",
-        text: "text-slate-400 dark:text-slate-500",
-        ring: "ring-slate-200 dark:ring-slate-700"
-      };
-    }
-    
-    // Gradient from cool blue to warm orange/red based on utilization
-    if (intensity < 0.2) {
-      return {
-        bg: hovered ? "bg-emerald-200 dark:bg-emerald-900/50" : "bg-emerald-100 dark:bg-emerald-900/30",
-        text: "text-emerald-700 dark:text-emerald-300",
-        ring: "ring-emerald-400"
-      };
-    }
-    if (intensity < 0.4) {
-      return {
-        bg: hovered ? "bg-teal-200 dark:bg-teal-900/50" : "bg-teal-100 dark:bg-teal-900/30",
-        text: "text-teal-700 dark:text-teal-300",
-        ring: "ring-teal-400"
-      };
-    }
-    if (intensity < 0.6) {
-      return {
-        bg: hovered ? "bg-blue-200 dark:bg-blue-900/50" : "bg-blue-100 dark:bg-blue-900/30",
-        text: "text-blue-700 dark:text-blue-300",
-        ring: "ring-blue-400"
-      };
-    }
-    if (intensity < 0.8) {
-      return {
-        bg: hovered ? "bg-amber-200 dark:bg-amber-900/50" : "bg-amber-100 dark:bg-amber-900/30",
-        text: "text-amber-700 dark:text-amber-300",
-        ring: "ring-amber-400"
-      };
-    }
-    return {
-      bg: hovered ? "bg-rose-200 dark:bg-rose-900/50" : "bg-rose-100 dark:bg-rose-900/30",
-      text: "text-rose-700 dark:text-rose-300",
-      ring: "ring-rose-400"
-    };
+  // GitHub colors
+  const getColor = (hours: number) => {
+    const intensity = maxHours > 0 ? (hours / maxHours) * 100 : 0;
+    if (hours === 0) return { bg: "bg-[#ebedf0]", darkBg: "dark:bg-[#1a2234]", text: "text-[#216e39]" };
+    if (intensity < 25) return { bg: "bg-[#9be9a8]", darkBg: "dark:bg-[#39d353]/30", text: "text-[#216e39]" };
+    if (intensity < 50) return { bg: "bg-[#40c463]", darkBg: "dark:bg-[#39d353]/50", text: "text-white" };
+    if (intensity < 75) return { bg: "bg-[#30a14e]", darkBg: "dark:bg-[#39d353]/70", text: "text-white" };
+    return { bg: "bg-[#216e39]", darkBg: "dark:bg-[#39d353]", text: "text-white" };
   };
 
-  const formatHour = (h: number) => {
-    if (h === 0) return "12 AM";
-    if (h === 12) return "12 PM";
-    return h > 12 ? `${h - 12} PM` : `${h} AM`;
-  };
+  const totalHours = weeklyData.flat().reduce((sum, d) => sum + d.hours, 0);
+  const totalBookings = weeklyData.flat().reduce((sum, d) => sum + d.count, 0);
+  const activeSlots = weeklyData.flat().filter((d) => d.hours > 0).length;
 
   return (
     <Card className="rounded-2xl border-border/60 overflow-hidden shadow-soft">
       {/* Header */}
-      <div className="bg-gradient-to-r from-muted/50 to-muted/30 px-5 py-4 border-b border-border/40">
+      <div className="bg-gradient-to-r from-emerald-50/50 to-teal-50/50 dark:from-emerald-950/20 dark:to-teal-950/20 px-5 py-4 border-b border-border/40">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 text-primary shadow-sm">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow-md">
               <Grid3x3 className="size-5" />
             </div>
             <div>
-              <h3 className="font-semibold text-base">Weekly Utilization Heatmap</h3>
+              <h3 className="font-semibold text-base">Booking Activity</h3>
               <p className="text-xs text-muted-foreground">
-                Equipment usage patterns by day and hour
+                GitHub-style contribution graph
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <Badge variant="outline" className="text-xs font-medium px-3 py-1.5 bg-background/50">
-              <Calendar className="size-3 mr-1.5" />
-              {format(parseISO(data.periodStart), "MMM d")} - {format(parseISO(data.periodEnd), "MMM d")}
-            </Badge>
-          </div>
+          <Badge variant="outline" className="text-xs font-medium px-3 py-1.5 bg-background/50">
+            <Calendar className="size-3 mr-1.5" />
+            {format(parseISO(data.periodStart), "MMM d")} - {format(parseISO(data.periodEnd), "MMM d")}
+          </Badge>
         </div>
       </div>
 
-      {/* Heatmap Grid */}
+      {/* Heatmap */}
       <div className="p-5">
-        {/* Hour labels - simplified */}
-        <div className="flex mb-3 ml-12">
-          <div className="text-[10px] text-muted-foreground/60 font-medium grid grid-cols-24 gap-0.5 w-full">
-            {hours.filter((_, i) => i % 3 === 0).map((hour) => (
-              <div key={hour} className="text-center">{formatHour(hour)}</div>
+        {/* GitHub-style grid */}
+        <div className="flex overflow-x-auto pb-2">
+          {/* Day labels */}
+          <div className="flex flex-col justify-between mr-3" style={{ height: '112px' }}>
+            <div className="text-[11px] text-muted-foreground">Mon</div>
+            <div className="text-[11px] text-muted-foreground">Wed</div>
+            <div className="text-[11px] text-muted-foreground">Fri</div>
+          </div>
+
+          {/* Weeks */}
+          <div className="flex gap-[3px]">
+            {weeklyData.map((week, weekIdx) => (
+              <div key={weekIdx} className="flex flex-col gap-[3px]">
+                {week.map((day, dayIdx) => {
+                  const color = getColor(day.hours);
+                  const isHovered = hoveredCell?.day === DAY_LABELS[dayIdx] && hoveredCell?.week === weekIdx;
+
+                  return (
+                    <div
+                      key={dayIdx}
+                      title={`${DAY_LABELS[dayIdx]} Week ${weekIdx + 1}: ${day.hours.toFixed(2)}h, ${day.count} bookings`}
+                      className={cn(
+                        "w-[14px] h-[14px] rounded-sm cursor-pointer transition-all duration-200",
+                        color.bg,
+                        color.darkBg,
+                        isHovered && "ring-2 ring-[#216e39] ring-offset-1 scale-110"
+                      )}
+                      onMouseEnter={() => setHoveredCell({ day: DAY_LABELS[dayIdx], week: weekIdx, hours: day.hours, count: day.count })}
+                      onMouseLeave={() => setHoveredCell(null)}
+                    />
+                  );
+                })}
+              </div>
             ))}
           </div>
         </div>
 
-        {/* Day rows */}
-        <div className="space-y-1.5">
-          {days.map((day, dayIdx) => (
-            <div key={day} className="flex items-center gap-2">
-              {/* Day label */}
-              <div className="w-12 text-xs font-medium text-muted-foreground text-right pr-2">
-                {day}
-              </div>
-              
-              {/* Hour cells */}
-              <div className="flex gap-0.5 flex-1">
-                {hours.map((hour) => {
-                  const key = `${dayIdx}-${hour}`;
-                  const hoursBooked = heatmapData.get(key) || 0;
-                  const color = getColor(hoursBooked, hoveredCell?.day === day && hoveredCell?.hour === hour);
-                  const isHovered = hoveredCell?.day === day && hoveredCell?.hour === hour;
-                  
-                  return (
-                    <div
-                      key={hour}
-                      className={cn(
-                        "flex-1 h-7 rounded-md flex items-center justify-center text-[10px] font-semibold transition-all duration-200 cursor-pointer",
-                        color.bg,
-                        color.text,
-                        isHovered && "ring-2 ring-offset-1 ring-offset-background z-10 scale-110 shadow-lg"
-                      )}
-                      onMouseEnter={() => setHoveredCell({ day, hour, hours: hoursBooked })}
-                      onMouseLeave={() => setHoveredCell(null)}
-                    >
-                      {hoursBooked > 0 && hoursBooked < 10 && hoursBooked.toFixed(1)}
-                    </div>
-                  );
-                })}
-              </div>
+        {/* Legend */}
+        <div className="mt-5 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-muted-foreground">Less</span>
+            <div className="flex gap-[3px]">
+              <div className="w-[14px] h-[14px] rounded-sm bg-[#ebedf0] dark:bg-[#1a2234]" />
+              <div className="w-[14px] h-[14px] rounded-sm bg-[#9be9a8]" />
+              <div className="w-[14px] h-[14px] rounded-sm bg-[#40c463]" />
+              <div className="w-[14px] h-[14px] rounded-sm bg-[#30a14e]" />
+              <div className="w-[14px] h-[14px] rounded-sm bg-[#216e39]" />
             </div>
-          ))}
+            <span className="text-xs text-muted-foreground">More</span>
+          </div>
+
+          {/* Hover tooltip */}
+          {hoveredCell && (
+            <div className="flex items-center gap-2 text-xs bg-emerald-50 dark:bg-emerald-950/30 px-3 py-1.5 rounded-lg border border-emerald-200 dark:border-emerald-800">
+              <span className="font-medium">{hoveredCell.day} W{hoveredCell.week + 1}:</span>
+              <span className="font-bold text-emerald-600 dark:text-emerald-400">
+                {hoveredCell.hours.toFixed(2)}h
+              </span>
+              <span className="text-muted-foreground">({hoveredCell.count})</span>
+            </div>
+          )}
         </div>
 
-        {/* Legend */}
-        <div className="mt-6 pt-4 border-t border-border/40">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-medium text-muted-foreground">Utilization:</span>
-              <div className="flex items-center gap-1">
-                <div className="w-6 h-6 rounded-md bg-slate-100 dark:bg-slate-800/50 flex items-center justify-center text-[9px] font-semibold text-slate-400" title="No usage">0</div>
-                <div className="w-6 h-6 rounded-md bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center text-[9px] font-semibold text-emerald-700" title="Low">L</div>
-                <div className="w-6 h-6 rounded-md bg-teal-100 dark:bg-teal-900/30 flex items-center justify-center text-[9px] font-semibold text-teal-700" title="Light">L</div>
-                <div className="w-6 h-6 rounded-md bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-[9px] font-semibold text-blue-700" title="Medium">M</div>
-                <div className="w-6 h-6 rounded-md bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center text-[9px] font-semibold text-amber-700" title="High">H</div>
-                <div className="w-6 h-6 rounded-md bg-rose-100 dark:bg-rose-900/30 flex items-center justify-center text-[9px] font-semibold text-rose-700" title="Very High">V</div>
-              </div>
+        {/* Stats */}
+        <div className="mt-6 grid grid-cols-3 gap-4">
+          <div className="text-center p-3 rounded-xl bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-950/30 dark:to-teal-950/30 border border-emerald-100 dark:border-emerald-800/30">
+            <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">
+              {totalHours.toFixed(1)}
             </div>
-            
-            {/* Hover tooltip preview */}
-            {hoveredCell ? (
-              <div className="flex items-center gap-2 text-xs bg-muted/50 px-3 py-1.5 rounded-lg border border-border/40 animate-fade-in">
-                <Clock className="size-3.5 text-primary" />
-                <span className="font-medium">{hoveredCell.day} {formatHour(hoveredCell.hour)}:</span>
-                <Badge variant="outline" className="text-xs font-bold bg-primary/10 text-primary border-primary/20">
-                  {hoveredCell.hours > 0 ? `${hoveredCell.hours.toFixed(2)}h` : "No usage"}
-                </Badge>
-              </div>
-            ) : (
-              <span className="text-xs text-muted-foreground/60">Hover over cells for details</span>
-            )}
+            <div className="text-xs text-muted-foreground">Hours</div>
           </div>
-          
-          {/* Gradient bar */}
-          <div className="mt-3 flex items-center gap-2">
-            <span className="text-[10px] text-muted-foreground/60">No Usage</span>
-            <div className="flex-1 h-2 rounded-full bg-gradient-to-r from-slate-100 via-emerald-200 teal-200 blue-200 amber-200 to-rose-200 dark:from-slate-800/50 dark:via-emerald-900/30 dark:teal-900/30 dark:blue-900/30 dark:amber-900/30 dark:to-rose-900/30" />
-            <span className="text-[10px] text-muted-foreground/60">Peak Usage</span>
+          <div className="text-center p-3 rounded-xl bg-gradient-to-br from-violet-50 to-purple-50 dark:from-violet-950/30 dark:to-purple-950/30 border border-violet-100 dark:border-violet-800/30">
+            <div className="text-2xl font-bold text-violet-600 dark:text-violet-400">
+              {totalBookings}
+            </div>
+            <div className="text-xs text-muted-foreground">Bookings</div>
+          </div>
+          <div className="text-center p-3 rounded-xl bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-950/30 dark:to-orange-950/30 border border-amber-100 dark:border-amber-800/30">
+            <div className="text-2xl font-bold text-amber-600 dark:text-amber-400">
+              {activeSlots}
+            </div>
+            <div className="text-xs text-muted-foreground">Active</div>
           </div>
         </div>
       </div>
