@@ -68,10 +68,10 @@ public class DashboardController {
             stats.put("pendingApprovalCount", bookingRepo.findByStatus(BookingStatus.PENDING).size());
             stats.put("activeBookingsCount", bookingRepo.findByStatus(BookingStatus.IN_PROGRESS).size());
         } else if (currentUser != null && currentUser.getDepartment() != null) {
-            // LAB_MANAGER or DEPARTMENT_HEAD - see only their department
+            // LAB_MANAGER or DEPARTMENT_HEAD - see bookings by users in their department
             Long deptId = currentUser.getDepartment().getId();
-            stats.put("pendingApprovalCount", bookingRepo.findByDepartmentIdAndStatus(deptId, BookingStatus.PENDING).size());
-            stats.put("activeBookingsCount", bookingRepo.findByDepartmentIdAndStatus(deptId, BookingStatus.IN_PROGRESS).size());
+            stats.put("pendingApprovalCount", bookingRepo.countByUserDepartmentIdAndStatus(deptId, BookingStatus.PENDING));
+            stats.put("activeBookingsCount", bookingRepo.countByUserDepartmentIdAndStatus(deptId, BookingStatus.IN_PROGRESS));
         } else {
             stats.put("pendingApprovalCount", 0);
             stats.put("activeBookingsCount", 0);

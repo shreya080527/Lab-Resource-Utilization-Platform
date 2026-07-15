@@ -1151,103 +1151,117 @@ function HeatmapTab() {
                 Booking intensity heatmap
               </SectionLabel>
               <p className="mt-1 text-xs text-muted-foreground">
-                Each cell = booked hours aggregated per day. Darker green = higher utilization.
-                Hover for details.
+                GitHub-style contribution graph. Each square = one week's booking hours.
+                Darker green = higher utilization.
               </p>
 
-              {/* GitHub-style heatmap */}
-              <div className="mt-6 overflow-x-auto pb-2">
-                <div className="min-w-[600px]">
+              {/* GitHub-style Weekly Heatmap */}
+              <div className="mt-6">
+                {/* Month labels */}
+                <div className="flex ml-10 mb-2">
+                  {(() => {
+                    const startMs = new Date(toISOStart(start)).getTime();
+                    const endMs = new Date(toISOEnd(end)).getTime();
+                    const diffDays = Math.ceil((endMs - startMs) / (7 * 24 * 60 * 60 * 1000)) + 1;
+                    return Array.from({ length: diffDays }, (_, i) => {
+                      const date = new Date(startMs + i * 7 * 24 * 60 * 60 * 1000);
+                      return (
+                        <div key={i} className="text-[11px] text-muted-foreground" style={{ minWidth: '16px' }}>
+                          {format(date, 'MMM')}
+                        </div>
+                      );
+                    });
+                  })()}
+                </div>
+
+                {/* Heatmap grid */}
+                <div className="flex">
                   {/* Day labels on left */}
-                  <div className="flex">
-                    <div className="flex flex-col justify-between mr-3 py-1">
-                      <div className="h-[12px] text-[10px] text-muted-foreground text-right w-8">Sun</div>
-                      <div className="h-[12px] text-[10px] text-muted-foreground text-right w-8">Mon</div>
-                      <div className="h-[12px] text-[10px] text-muted-foreground text-right w-8">Tue</div>
-                      <div className="h-[12px] text-[10px] text-muted-foreground text-right w-8">Wed</div>
-                      <div className="h-[12px] text-[10px] text-muted-foreground text-right w-8">Thu</div>
-                      <div className="h-[12px] text-[10px] text-muted-foreground text-right w-8">Fri</div>
-                      <div className="h-[12px] text-[10px] text-muted-foreground text-right w-8">Sat</div>
-                    </div>
+                  <div className="flex flex-col justify-between mr-2" style={{ height: '112px' }}>
+                    <div className="text-[10px] text-muted-foreground">Mon</div>
+                    <div className="text-[10px] text-muted-foreground">Wed</div>
+                    <div className="text-[10px] text-muted-foreground">Fri</div>
+                  </div>
 
-                    {/* Heatmap grid - aggregate by day of week */}
-                    <div className="flex gap-[4px]">
-                      {grid.map((dayData, dayIdx) => {
-                        // Aggregate all hours for this day of week
-                        const totalBooked = dayData.reduce((sum, h) => sum + h.booked, 0);
-                        const totalCount = dayData.reduce((sum, h) => sum + h.count, 0);
-                        const intensity = maxBooked > 0 ? Math.round((totalBooked / maxBooked) * 100) : 0;
-                        
-                        // GitHub-inspired colors: emerald green gradient
-                        const getBgColor = (intensity: number, booked: number) => {
-                          if (booked === 0) return 'bg-[#ebedf0] dark:bg-[#161b22]';
-                          if (intensity < 15) return 'bg-[#9be9a8]';
-                          if (intensity < 30) return 'bg-[#40c463]';
-                          if (intensity < 60) return 'bg-[#30a14e]';
-                          return 'bg-[#216e39]';
-                        };
-                        
-                        return (
-                          <div key={dayIdx} className="flex flex-col gap-[4px]">
-                            <div className="text-[10px] text-muted-foreground text-center mb-1">
-                              {DAY_LABELS[dayIdx]}
-                            </div>
+                  {/* Weekly squares - convert grid to weeks */}
+                  <div className="flex gap-[3px] overflow-x-auto pb-2">
+                    {Array.from({ length: Math.ceil(grid[0].length / 24) }, (_, weekIdx) => (
+                      <div key={weekIdx} className="flex flex-col gap-[3px]">
+                        {grid.map((dayData, dayIdx) => {
+                          // Aggregate hours for this week
+                          const hourData = dayData.slice(weekIdx * 24, Math.min((weekIdx + 1) * 24, dayData.length));
+                          const weekBooked = hourData.reduce((sum, h) => sum + h.booked, 0);
+                          const weekCount = hourData.reduce((sum, h) => sum + h.count, 0);
+                          const intensity = maxBooked > 0 ? Math.round((weekBooked / maxBooked) * 100) : 0;
+                          
+                          // GitHub colors
+                          const getBgColor = (intensity: number, booked: number) => {
+                            if (booked === 0) return 'bg-[#ebedf0] dark:bg-[#1a2234]';
+                            if (intensity < 15) return 'bg-[#9be9a8]';
+                            if (intensity < 30) return 'bg-[#40c463]';
+                            if (intensity < 60) return 'bg-[#30a14e]';
+                            return 'bg-[#216e39]';
+                          };
+                          
+                          return (
                             <div
-                              title={`${DAY_LABELS[dayIdx]} — ${fmtHours(totalBooked)}h booked · ${totalCount} booking${totalCount === 1 ? '' : 's'}`}
+                              key={dayIdx}
+                              title={`${DAY_LABELS[dayIdx]} (Week ${weekIdx + 1}) — ${fmtHours(weekBooked)}h, ${weekCount} bookings`}
                               className={cn(
-                                "w-[52px] h-[52px] rounded-lg transition-all duration-200 hover:ring-2 hover:ring-offset-2 hover:ring-[#216e39] cursor-pointer flex items-center justify-center shadow-sm",
-                                getBgColor(intensity, totalBooked)
+                                "w-[14px] h-[14px] rounded-sm transition-all duration-200 hover:ring-2 hover:ring-[#216e39] cursor-pointer",
+                                getBgColor(intensity, weekBooked)
                               )}
-                            >
-                              <span className={cn(
-                                "text-xs font-semibold",
-                                totalBooked === 0 ? "text-muted-foreground" : "text-white drop-shadow-md"
-                              )}>
-                                {totalBooked > 0 ? fmtHours(totalBooked) + 'h' : '-'}
-                              </span>
-                            </div>
-                            {/* Hour breakdown on hover */}
-                            <div className="space-y-0.5">
-                              {[0, 6, 12, 18].map(h => (
-                                <div key={h} className="text-[8px] text-muted-foreground text-center">
-                                  {dayData[h]?.booked > 0 ? `${fmtHours(dayData[h].booked)}h` : ''}
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        );
-                      })}
+                            />
+                          );
+                        })}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Legend */}
+                <div className="mt-6 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-muted-foreground">Less</span>
+                    <div className="flex gap-[3px]">
+                      <div className="w-[14px] h-[14px] rounded-sm bg-[#ebedf0] dark:bg-[#1a2234]" />
+                      <div className="w-[14px] h-[14px] rounded-sm bg-[#9be9a8]" />
+                      <div className="w-[14px] h-[14px] rounded-sm bg-[#40c463]" />
+                      <div className="w-[14px] h-[14px] rounded-sm bg-[#30a14e]" />
+                      <div className="w-[14px] h-[14px] rounded-sm bg-[#216e39]" />
                     </div>
+                    <span className="text-xs text-muted-foreground">More</span>
                   </div>
+                  <span className="text-xs text-muted-foreground">
+                    {fmtHours(maxBooked)}h peak
+                  </span>
+                </div>
 
-                  {/* Hour legend at bottom */}
-                  <div className="flex justify-center gap-6 mt-4 text-[10px] text-muted-foreground">
-                    <span>Midnight</span>
-                    <span>6 AM</span>
-                    <span>Noon</span>
-                    <span>6 PM</span>
+                {/* Summary stats */}
+                <div className="mt-6 grid grid-cols-3 gap-4">
+                  <div className="text-center p-3 rounded-xl bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-950/30 dark:to-teal-950/30">
+                    <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">
+                      {fmtHours(grid.flat().reduce((sum, d) => sum + d.booked, 0))}
+                    </div>
+                    <div className="text-xs text-muted-foreground">Total Hours</div>
+                  </div>
+                  <div className="text-center p-3 rounded-xl bg-gradient-to-br from-violet-50 to-purple-50 dark:from-violet-950/30 dark:to-purple-950/30">
+                    <div className="text-2xl font-bold text-violet-600 dark:text-violet-400">
+                      {grid.flat().reduce((sum, d) => sum + d.count, 0)}
+                    </div>
+                    <div className="text-xs text-muted-foreground">Total Bookings</div>
+                  </div>
+                  <div className="text-center p-3 rounded-xl bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-950/30 dark:to-orange-950/30">
+                    <div className="text-2xl font-bold text-amber-600 dark:text-amber-400">
+                      {grid.flat().filter(d => d.booked > 0).length}
+                    </div>
+                    <div className="text-xs text-muted-foreground">Active Slots</div>
                   </div>
                 </div>
               </div>
 
-              {/* Legend */}
-              <div className="mt-6 flex items-center gap-3">
-                <span className="text-xs text-muted-foreground">Less</span>
-                <div className="flex gap-[4px]">
-                  <div className="w-6 h-6 rounded-lg bg-[#ebedf0] dark:bg-[#161b22]" />
-                  <div className="w-6 h-6 rounded-lg bg-[#9be9a8]" />
-                  <div className="w-6 h-6 rounded-lg bg-[#40c463]" />
-                  <div className="w-6 h-6 rounded-lg bg-[#30a14e]" />
-                  <div className="w-6 h-6 rounded-lg bg-[#216e39]" />
-                </div>
-                <span className="text-xs text-muted-foreground">More</span>
-                <span className="ml-auto text-xs text-muted-foreground font-medium">
-                  Peak: {fmtHours(maxBooked)}h booked in a slot
-                </span>
-              </div>
-              <p className="mt-3 text-xs text-muted-foreground">
-                Window: {fmtDateTime(heatmap.periodStart)} →{" "}
-                {fmtDateTime(heatmap.periodEnd)}
+              <p className="mt-4 text-xs text-muted-foreground">
+                Period: {fmtDateTime(heatmap.periodStart)} → {fmtDateTime(heatmap.periodEnd)}
               </p>
             </Card>
           ) : null}
