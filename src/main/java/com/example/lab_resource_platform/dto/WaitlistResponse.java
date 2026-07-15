@@ -17,6 +17,7 @@ public class WaitlistResponse {
     private LocalDateTime startTime;
     private LocalDateTime endTime;
     private Integer position;
+    private Boolean notified;
     private LocalDateTime createdAt;
 
     public static WaitlistResponse from(Waitlist w) {
@@ -29,6 +30,7 @@ public class WaitlistResponse {
                 .startTime(w.getStartTime())
                 .endTime(w.getEndTime())
                 .position(w.getPosition())
+                .notified(w.getNotified() != null ? w.getNotified() : false)
                 .createdAt(w.getCreatedAt())
                 .build();
     }

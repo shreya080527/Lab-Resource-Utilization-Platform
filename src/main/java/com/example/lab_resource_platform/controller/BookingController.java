@@ -117,9 +117,9 @@ public class BookingController {
     }
 
     @GetMapping("/all")
-    @PreAuthorize("hasRole('LAB_MANAGER')")
+    @PreAuthorize("hasAnyRole('LAB_MANAGER','SYSTEM_ADMIN','INSTITUTION_ADMIN')")
     public ResponseEntity<List<BookingResponse>> all() {
-        return ResponseEntity.ok(bookingService.findAll()
+        return ResponseEntity.ok(bookingService.findAllForCurrentManagerDepartment()
                 .stream().map(BookingResponse::from).toList());
     }
 

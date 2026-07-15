@@ -19,6 +19,7 @@ import {
   Archive,
   Activity,
   Radio,
+  TrendingUp,
 } from "lucide-react";
 import { toast } from "sonner";
 import { format, parseISO } from "date-fns";
@@ -35,11 +36,12 @@ import { ListSkeleton, CardSkeleton } from "@/components/shared/Skeletons";
 
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 
 import type { Booking } from "@/types";
 
 // ---------------------------------------------------------------------------
-// Stat card
+// Stat card - Enhanced with modern design
 // ---------------------------------------------------------------------------
 
 function StatCard({
@@ -48,6 +50,7 @@ function StatCard({
   value,
   accent,
   ring,
+  trend,
   onClick,
 }: {
   icon: React.ComponentType<{ className?: string }>;
@@ -55,40 +58,53 @@ function StatCard({
   value: number | undefined;
   accent: string;
   ring?: string;
+  trend?: "up" | "down" | "neutral";
   onClick?: () => void;
 }) {
   const inner = (
-    <>
+    <div className="flex items-start justify-between">
       <div className="flex items-center gap-3">
         <div
           className={cn(
-            "flex size-9 shrink-0 items-center justify-center rounded-xl ring-1",
+            "flex size-11 shrink-0 items-center justify-center rounded-xl shadow-sm",
             accent,
           )}
         >
-          <Icon className="size-4" />
+          <Icon className="size-5" />
         </div>
         <div className="min-w-0">
-          <p className="text-2xl font-semibold leading-none tracking-tight text-foreground">
+          <p className="text-3xl font-bold tracking-tight text-foreground">
             {value === undefined ? "–" : value}
           </p>
-          <p className="mt-1 truncate text-xs text-muted-foreground">{label}</p>
+          <p className="mt-0.5 text-xs font-medium text-muted-foreground">{label}</p>
         </div>
       </div>
-    </>
+      {trend && (
+        <div className={cn(
+          "flex items-center gap-1 rounded-full px-2 py-1 text-xs font-semibold",
+          trend === "up" && "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400",
+          trend === "down" && "bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400",
+          trend === "neutral" && "bg-muted text-muted-foreground"
+        )}>
+          <TrendingUp className={cn("size-3", trend === "down" && "rotate-180")} />
+          {trend === "up" ? "High" : trend === "down" ? "Low" : "Normal"}
+        </div>
+      )}
+    </div>
   );
   const cls = cn(
-    "rounded-2xl border border-border/60 bg-card p-4 shadow-soft transition-all duration-200",
+    "rounded-2xl border border-border/60 bg-card shadow-soft transition-all duration-200",
+    "bg-gradient-to-br from-card to-card/80",
     ring,
     onClick &&
-      "cursor-pointer hover:-translate-y-0.5 hover:shadow-float hover:border-primary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
+      "cursor-pointer hover:-translate-y-1 hover:shadow-xl hover:border-primary/30 hover:shadow-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
   );
   return onClick ? (
-    <button type="button" onClick={onClick} className={cn(cls, "text-left w-full")}>
+    <button type="button" onClick={onClick} className={cn(cls, "text-left w-full p-4")}>
       {inner}
     </button>
   ) : (
-    <div className={cls}>{inner}</div>
+    <div className={cn(cls, "p-4")}>{inner}</div>
   );
 }
 

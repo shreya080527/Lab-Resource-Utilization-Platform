@@ -60,5 +60,11 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
     List<Booking> findByParentBookingId(@Param("parentId") Long parentId);
     
     List<Booking> findByStatusAndEndTimeBetween(BookingStatus status, LocalDateTime start, LocalDateTime end);
+
+    @Query("SELECT b FROM Booking b WHERE b.equipment.department.id = :departmentId ORDER BY b.startTime DESC")
+    List<Booking> findByDepartmentId(@Param("departmentId") Long departmentId);
+
+    @Query("SELECT b FROM Booking b WHERE b.equipment.department.id = :departmentId AND b.status = :status ORDER BY b.startTime DESC")
+    List<Booking> findByDepartmentIdAndStatus(@Param("departmentId") Long departmentId, @Param("status") BookingStatus status);
 }
 

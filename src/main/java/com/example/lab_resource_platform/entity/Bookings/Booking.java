@@ -27,7 +27,8 @@ public class Booking {
     @Column(nullable = false)
     private LocalDateTime endTime;
 
-    @Enumerated(EnumType.STRING) @Column(nullable = false)
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status", nullable = false, columnDefinition = "varchar(20)")
     private BookingStatus status;
 
     private String recurrencePattern; // DAILY, WEEKLY, MONTHLY, null = one-time
