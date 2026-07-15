@@ -508,164 +508,271 @@ function FilterBar({
 }
 
 // ---------------------------------------------------------------------------
-// GitHub-Style Heatmap Component
+// GitHub-Style Multi-View Heatmap Component
 // ---------------------------------------------------------------------------
 
+type HeatmapView = "year" | "month" | "week";
+
 function UtilizationHeatmap({ data }: { data: HeatmapReport }) {
-  const [hoveredCell, setHoveredCell] = React.useState<{ day: string; week: number; hours: number; count: number } | null>(null);
+  const [view, setView] = useState<HeatmapView>("year");
+  const [hoveredCell, setHoveredCell] = React.useState<{ label: string; hours: number; count: number } | null>(null);
 
-  // Build weekly aggregation
-  const weeklyData = React.useMemo(() => {
-    // Group by week (each 24-hour block is one "week" since we have 7 days × 24 hours)
-    const weeks = Math.ceil(data.heatmap.length / (7 * 24)) || 1;
-    const grid: { hours: number; count: number }[][] = Array.from({ length: weeks }, () =>
-      Array.from({ length: 7 }, () => ({ hours: 0, count: 0 }))
-    );
+  const periodStart = parseISO(data.periodStart);
+  const periodEnd = parseISO(data.periodEnd);
 
+  const dataMap = React.useMemo(() => {
+    const map = new Map<string, { hours: number; count: number }>();
     data.heatmap.forEach((point) => {
-      const dayIndex = dayIdx(point.dayOfWeek);
-      if (dayIndex < 0) return;
-      const hourIndex = Math.max(0, Math.min(23, point.hourOfDay));
-      const weekIndex = Math.floor(hourIndex / 24);
-      if (weekIndex < grid.length) {
-        grid[weekIndex][dayIndex].hours += point.bookedHours;
-        grid[weekIndex][dayIndex].count += point.bookingCount;
-      }
+      const key = `${point.dayOfWeek}-${point.hourOfDay}`;
+      const existing = map.get(key) || { hours: 0, count: 0 };
+      map.set(key, {
+        hours: existing.hours + point.bookedHours,
+        count: existing.count + point.bookingCount,
+      });
     });
-
-    return grid;
+    return map;
   }, [data.heatmap]);
 
-  const maxHours = Math.max(...weeklyData.flat().map((d) => d.hours), 1);
+  const maxHours = React.useMemo(() => {
+    return Math.max(...Array.from(dataMap.values()).map((d) => d.hours), 1);
+  }, [dataMap]);
 
-  // GitHub colors
   const getColor = (hours: number) => {
-    const intensity = maxHours > 0 ? (hours / maxHours) * 100 : 0;
-    if (hours === 0) return { bg: "bg-[#ebedf0]", darkBg: "dark:bg-[#1a2234]", text: "text-[#216e39]" };
-    if (intensity < 25) return { bg: "bg-[#9be9a8]", darkBg: "dark:bg-[#39d353]/30", text: "text-[#216e39]" };
-    if (intensity < 50) return { bg: "bg-[#40c463]", darkBg: "dark:bg-[#39d353]/50", text: "text-white" };
-    if (intensity < 75) return { bg: "bg-[#30a14e]", darkBg: "dark:bg-[#39d353]/70", text: "text-white" };
-    return { bg: "bg-[#216e39]", darkBg: "dark:bg-[#39d353]", text: "text-white" };
+    if (hours === 0) return "bg-[#ebedf0] dark:bg-[#161b22]";
+    const intensity = (hours / maxHours) * 100;
+    if (intensity < 25) return "bg-[#9be9a8] dark:bg-[#39d353]/20";
+    if (intensity < 50) return "bg-[#40c463] dark:bg-[#39d353]/40";
+    if (intensity < 75) return "bg-[#30a14e] dark:bg-[#39d353]/60";
+    return "bg-[#216e39] dark:bg-[#39d353]/80";
   };
 
-  const totalHours = weeklyData.flat().reduce((sum, d) => sum + d.hours, 0);
-  const totalBookings = weeklyData.flat().reduce((sum, d) => sum + d.count, 0);
-  const activeSlots = weeklyData.flat().filter((d) => d.hours > 0).length;
+  const yearView = React.useMemo(() => {
+    const weeks: { date: Date; hours: number; count: number }[][] = [];
+    const startDate = subDays(new Date(), 365);
+    let currentWeek: { date: Date; hours: number; count: number }[] = [];
+
+    for (let i = 0; i < 365; i++) {
+      const date = new Date(startDate);
+      date.setDate(date.getDate() + i);
+      const dayOfWeek = date.getDay();
+      const dayName = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][dayOfWeek];
+
+      let dayHours = 0;
+      let dayCount = 0;
+      for (let h = 0; h < 24; h++) {
+        const key = `${dayName.toUpperCase()}-${h}`;
+        const d = dataMap.get(key);
+        if (d) { dayHours += d.hours; dayCount += d.count; }
+      }
+      currentWeek.push({ date, hours: dayHours, count: dayCount });
+      if (dayOfWeek === 6) { weeks.push(currentWeek); currentWeek = []; }
+    }
+    if (currentWeek.length > 0) weeks.push(currentWeek);
+    return weeks;
+  }, [dataMap]);
+
+  const monthView = React.useMemo(() => {
+    const weeks: { date: Date; hours: number; count: number }[][] = [];
+    const startDate = subMonths(new Date(), 1);
+    let currentWeek: { date: Date; hours: number; count: number }[] = [];
+
+    for (let i = 0; i < 35; i++) {
+      const date = new Date(startDate);
+      date.setDate(date.getDate() + i);
+      const dayOfWeek = date.getDay();
+      const dayName = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][dayOfWeek];
+
+      let dayHours = 0;
+      let dayCount = 0;
+      for (let h = 0; h < 24; h++) {
+        const key = `${dayName.toUpperCase()}-${h}`;
+        const d = dataMap.get(key);
+        if (d) { dayHours += d.hours; dayCount += d.count; }
+      }
+      currentWeek.push({ date, hours: dayHours, count: dayCount });
+      if (dayOfWeek === 6) { weeks.push(currentWeek); currentWeek = []; }
+    }
+    if (currentWeek.length > 0) weeks.push(currentWeek);
+    return weeks;
+  }, [dataMap]);
+
+  const weekView = React.useMemo(() => {
+    const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    return days.map((day) => {
+      const hours: { hour: number; hours: number; count: number }[] = [];
+      for (let h = 0; h < 24; h++) {
+        const key = `${day.toUpperCase()}-${h}`;
+        const d = dataMap.get(key) || { hours: 0, count: 0 };
+        hours.push({ hour: h, hours: d.hours, count: d.count });
+      }
+      return { day, hours };
+    });
+  }, [dataMap]);
+
+  const totalHours = Array.from(dataMap.values()).reduce((sum, d) => sum + d.hours, 0);
+  const totalBookings = Array.from(dataMap.values()).reduce((sum, d) => sum + d.count, 0);
+  const activeDays = new Set(Array.from(dataMap.entries()).filter(([, d]) => d.hours > 0).map(([k]) => k.split("-")[0])).size;
 
   return (
     <Card className="rounded-2xl border-border/60 overflow-hidden shadow-soft">
-      {/* Header */}
       <div className="bg-gradient-to-r from-emerald-50/50 to-teal-50/50 dark:from-emerald-950/20 dark:to-teal-950/20 px-5 py-4 border-b border-border/40">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between flex-wrap gap-3">
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow-md">
               <Grid3x3 className="size-5" />
             </div>
             <div>
               <h3 className="font-semibold text-base">Booking Activity</h3>
-              <p className="text-xs text-muted-foreground">
-                GitHub-style contribution graph
-              </p>
+              <p className="text-xs text-muted-foreground">GitHub-style contribution graph</p>
             </div>
           </div>
-          <Badge variant="outline" className="text-xs font-medium px-3 py-1.5 bg-background/50">
-            <Calendar className="size-3 mr-1.5" />
-            {format(parseISO(data.periodStart), "MMM d")} - {format(parseISO(data.periodEnd), "MMM d")}
-          </Badge>
+          <div className="flex items-center gap-2">
+            <div className="flex bg-muted rounded-lg p-1">
+              {(["year", "month", "week"] as HeatmapView[]).map((v) => (
+                <button key={v} onClick={() => setView(v)} className={cn("px-3 py-1 text-xs font-medium rounded-md transition-all capitalize", view === v ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground")}>{v}</button>
+              ))}
+            </div>
+            <Badge variant="outline" className="text-xs font-medium px-3 py-1.5 bg-background/50">
+              <Calendar className="size-3 mr-1.5" />
+              {format(periodStart, "MMM d")} - {format(periodEnd, "MMM d, yyyy")}
+            </Badge>
+          </div>
         </div>
       </div>
 
-      {/* Heatmap */}
       <div className="p-5">
-        {/* GitHub-style grid */}
-        <div className="flex overflow-x-auto pb-2">
-          {/* Day labels */}
-          <div className="flex flex-col justify-between mr-3" style={{ height: '112px' }}>
-            <div className="text-[11px] text-muted-foreground">Mon</div>
-            <div className="text-[11px] text-muted-foreground">Wed</div>
-            <div className="text-[11px] text-muted-foreground">Fri</div>
+        {view === "year" && (
+          <div>
+            <div className="flex ml-8 mb-1">
+              {["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"].map((m) => (
+                <div key={m} className="text-[10px] text-muted-foreground" style={{ width: `${100/12}%` }}>{m}</div>
+              ))}
+            </div>
+            <div className="flex">
+              <div className="flex flex-col justify-between mr-2" style={{ height: '112px' }}>
+                <div></div><div className="text-[10px] text-muted-foreground">Mon</div><div></div>
+                <div className="text-[10px] text-muted-foreground">Wed</div><div></div>
+                <div className="text-[10px] text-muted-foreground">Fri</div><div></div>
+              </div>
+              <div className="flex gap-[2px] overflow-x-auto pb-1">
+                {yearView.map((week, weekIdx) => (
+                  <div key={weekIdx} className="flex flex-col gap-[2px]">
+                    {week.map((day, dayIdx) => {
+                      const isHovered = hoveredCell?.label === format(day.date, "MMM d");
+                      return (
+                        <div key={dayIdx} title={`${format(day.date, "EEE, MMM d, yyyy")}: ${day.hours.toFixed(2)}h, ${day.count} bookings`}
+                          className={cn("w-[11px] h-[11px] rounded-sm cursor-pointer transition-all duration-150", getColor(day.hours), isHovered && "ring-2 ring-[#216e39] scale-125")}
+                          onMouseEnter={() => setHoveredCell({ label: format(day.date, "MMM d"), hours: day.hours, count: day.count })}
+                          onMouseLeave={() => setHoveredCell(null)} />
+                      );
+                    })}
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
+        )}
 
-          {/* Weeks */}
-          <div className="flex gap-[3px]">
-            {weeklyData.map((week, weekIdx) => (
-              <div key={weekIdx} className="flex flex-col gap-[3px]">
-                {week.map((day, dayIdx) => {
-                  const color = getColor(day.hours);
-                  const isHovered = hoveredCell?.day === DAY_LABELS[dayIdx] && hoveredCell?.week === weekIdx;
+        {view === "month" && (
+          <div>
+            <div className="flex mb-2 ml-8 gap-1">
+              {["S", "M", "T", "W", "T", "F", "S"].map((d, i) => (
+                <div key={i} className="w-8 text-center text-[10px] text-muted-foreground">{d}</div>
+              ))}
+            </div>
+            <div className="flex">
+              <div className="flex flex-col justify-between mr-2" style={{ height: '224px' }}>
+                <div className="text-[10px] text-muted-foreground">Mon</div>
+                <div className="text-[10px] text-muted-foreground">Wed</div>
+                <div className="text-[10px] text-muted-foreground">Fri</div>
+              </div>
+              <div className="flex flex-col gap-1">
+                {monthView.map((week, weekIdx) => (
+                  <div key={weekIdx} className="flex gap-1">
+                    {week.map((day, dayIdx) => {
+                      const isFuture = day.date > new Date();
+                      const isHovered = hoveredCell?.label === format(day.date, "MMM d");
+                      return (
+                        <div key={dayIdx} title={`${format(day.date, "EEE, MMM d")}: ${day.hours.toFixed(2)}h, ${day.count} bookings`}
+                          className={cn("w-8 h-8 rounded-md cursor-pointer transition-all duration-150 flex items-center justify-center text-[9px] font-medium", getColor(day.hours), isFuture && "opacity-30 cursor-default", isHovered && !isFuture && "ring-2 ring-[#216e39] scale-110")}
+                          onMouseEnter={() => !isFuture && setHoveredCell({ label: format(day.date, "MMM d"), hours: day.hours, count: day.count })}
+                          onMouseLeave={() => setHoveredCell(null)}>
+                          {format(day.date, "d")}
+                        </div>
+                      );
+                    })}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
 
-                  return (
-                    <div
-                      key={dayIdx}
-                      title={`${DAY_LABELS[dayIdx]} Week ${weekIdx + 1}: ${day.hours.toFixed(2)}h, ${day.count} bookings`}
-                      className={cn(
-                        "w-[14px] h-[14px] rounded-sm cursor-pointer transition-all duration-200",
-                        color.bg,
-                        color.darkBg,
-                        isHovered && "ring-2 ring-[#216e39] ring-offset-1 scale-110"
-                      )}
-                      onMouseEnter={() => setHoveredCell({ day: DAY_LABELS[dayIdx], week: weekIdx, hours: day.hours, count: day.count })}
-                      onMouseLeave={() => setHoveredCell(null)}
-                    />
-                  );
-                })}
+        {view === "week" && (
+          <div className="space-y-2">
+            {weekView.map(({ day, hours }) => (
+              <div key={day} className="flex items-center gap-2">
+                <div className="w-10 text-xs font-medium text-muted-foreground text-right">{day}</div>
+                <div className="flex gap-[1px] flex-1">
+                  {hours.map(({ hour, hours: h, count }) => {
+                    const isHovered = hoveredCell?.label === `${day} ${hour}:00`;
+                    return (
+                      <div key={hour} title={`${day} ${hour}:00 - ${h.toFixed(2)}h, ${count} bookings`}
+                        className={cn("flex-1 h-6 rounded-sm cursor-pointer transition-all duration-150", getColor(h), isHovered && "ring-2 ring-[#216e39] scale-105")}
+                        onMouseEnter={() => setHoveredCell({ label: `${day} ${hour}:00`, hours: h, count })}
+                        onMouseLeave={() => setHoveredCell(null)} />
+                    );
+                  })}
+                </div>
               </div>
             ))}
+            <div className="flex ml-12 gap-[1px]">
+              {Array.from({ length: 24 }, (_, i) => (
+                <div key={i} className="flex-1 text-center text-[8px] text-muted-foreground">{i % 6 === 0 ? `${i}` : ""}</div>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
 
-        {/* Legend */}
         <div className="mt-5 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <span className="text-xs text-muted-foreground">Less</span>
-            <div className="flex gap-[3px]">
-              <div className="w-[14px] h-[14px] rounded-sm bg-[#ebedf0] dark:bg-[#1a2234]" />
-              <div className="w-[14px] h-[14px] rounded-sm bg-[#9be9a8]" />
-              <div className="w-[14px] h-[14px] rounded-sm bg-[#40c463]" />
-              <div className="w-[14px] h-[14px] rounded-sm bg-[#30a14e]" />
-              <div className="w-[14px] h-[14px] rounded-sm bg-[#216e39]" />
+            <div className="flex gap-[2px]">
+              <div className="w-3 h-3 rounded-sm bg-[#ebedf0] dark:bg-[#161b22]" />
+              <div className="w-3 h-3 rounded-sm bg-[#9be9a8]" />
+              <div className="w-3 h-3 rounded-sm bg-[#40c463]" />
+              <div className="w-3 h-3 rounded-sm bg-[#30a14e]" />
+              <div className="w-3 h-3 rounded-sm bg-[#216e39]" />
             </div>
             <span className="text-xs text-muted-foreground">More</span>
           </div>
-
-          {/* Hover tooltip */}
           {hoveredCell && (
             <div className="flex items-center gap-2 text-xs bg-emerald-50 dark:bg-emerald-950/30 px-3 py-1.5 rounded-lg border border-emerald-200 dark:border-emerald-800">
-              <span className="font-medium">{hoveredCell.day} W{hoveredCell.week + 1}:</span>
-              <span className="font-bold text-emerald-600 dark:text-emerald-400">
-                {hoveredCell.hours.toFixed(2)}h
-              </span>
+              <span className="font-medium">{hoveredCell.label}:</span>
+              <span className="font-bold text-emerald-600 dark:text-emerald-400">{hoveredCell.hours.toFixed(2)}h</span>
               <span className="text-muted-foreground">({hoveredCell.count})</span>
             </div>
           )}
         </div>
 
-        {/* Stats */}
-        <div className="mt-6 grid grid-cols-3 gap-4">
+        <div className="mt-5 grid grid-cols-3 gap-3">
           <div className="text-center p-3 rounded-xl bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-950/30 dark:to-teal-950/30 border border-emerald-100 dark:border-emerald-800/30">
-            <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">
-              {totalHours.toFixed(1)}
-            </div>
-            <div className="text-xs text-muted-foreground">Hours</div>
+            <div className="text-xl font-bold text-emerald-600 dark:text-emerald-400">{totalHours.toFixed(1)}h</div>
+            <div className="text-xs text-muted-foreground">Total Hours</div>
           </div>
           <div className="text-center p-3 rounded-xl bg-gradient-to-br from-violet-50 to-purple-50 dark:from-violet-950/30 dark:to-purple-950/30 border border-violet-100 dark:border-violet-800/30">
-            <div className="text-2xl font-bold text-violet-600 dark:text-violet-400">
-              {totalBookings}
-            </div>
-            <div className="text-xs text-muted-foreground">Bookings</div>
+            <div className="text-xl font-bold text-violet-600 dark:text-violet-400">{totalBookings}</div>
+            <div className="text-xs text-muted-foreground">Total Bookings</div>
           </div>
           <div className="text-center p-3 rounded-xl bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-950/30 dark:to-orange-950/30 border border-amber-100 dark:border-amber-800/30">
-            <div className="text-2xl font-bold text-amber-600 dark:text-amber-400">
-              {activeSlots}
-            </div>
-            <div className="text-xs text-muted-foreground">Active</div>
+            <div className="text-xl font-bold text-amber-600 dark:text-amber-400">{activeDays}</div>
+            <div className="text-xs text-muted-foreground">Active Days</div>
           </div>
         </div>
       </div>
     </Card>
   );
 }
-
 // ---------------------------------------------------------------------------
 // Idle Equipment Component
 // ---------------------------------------------------------------------------
