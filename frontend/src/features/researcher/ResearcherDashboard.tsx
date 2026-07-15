@@ -11,6 +11,10 @@ import {
   CalendarClock,
   History,
   ArrowRight,
+  Sparkles,
+  TrendingUp,
+  Calendar,
+  AlertCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { format, parseISO } from "date-fns";
@@ -124,36 +128,40 @@ const EMPTY_COPY: Record<FilterKey, { title: string; description: string }> = {
 };
 
 // ---------------------------------------------------------------------------
-// Stat card
+// Stat card - Enhanced with gradients
 // ---------------------------------------------------------------------------
 
 function StatCard({
   icon: Icon,
   label,
   value,
-  accent,
+  gradient,
 }: {
   icon: React.ComponentType<{ className?: string }>;
   label: string;
   value: number;
-  accent: string;
+  gradient: string;
 }) {
   return (
-    <div className="rounded-2xl border border-border/60 bg-card p-4 shadow-soft">
+    <div className={cn(
+      "rounded-2xl border border-border/40 p-4 shadow-md transition-all duration-300",
+      "bg-gradient-to-br from-card to-transparent",
+      "hover:shadow-lg hover:-translate-y-0.5 hover:border-primary/20"
+    )}>
       <div className="flex items-center gap-3">
         <div
           className={cn(
-            "flex size-9 shrink-0 items-center justify-center rounded-xl ring-1",
-            accent,
+            "flex size-11 shrink-0 items-center justify-center rounded-xl shadow-md",
+            gradient
           )}
         >
-          <Icon className="size-4" />
+          <Icon className="size-5" />
         </div>
         <div className="min-w-0">
-          <p className="text-2xl font-semibold leading-none tracking-tight text-foreground">
+          <p className="text-3xl font-bold tracking-tight text-foreground">
             {value}
           </p>
-          <p className="mt-1 truncate text-xs text-muted-foreground">{label}</p>
+          <p className="mt-0.5 truncate text-xs font-medium text-muted-foreground">{label}</p>
         </div>
       </div>
     </div>
@@ -161,9 +169,7 @@ function StatCard({
 }
 
 // ---------------------------------------------------------------------------
-// Waitlist row
-//   — backend-provided `position` field (NO client-side sorting). The
-//     WaitlistEntry shape already carries position directly.
+// Waitlist row - Enhanced with gradients
 // ---------------------------------------------------------------------------
 
 function WaitlistRow({ entry }: { entry: WaitlistEntry }) {
@@ -171,18 +177,18 @@ function WaitlistRow({ entry }: { entry: WaitlistEntry }) {
   const end = parseISO(entry.endTime);
   const sameDay = format(start, "yyyy-MM-dd") === format(end, "yyyy-MM-dd");
   return (
-    <li className="flex flex-col gap-2 rounded-xl border border-border/60 bg-background/40 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+    <li className="flex flex-col gap-3 rounded-xl border border-orange-200/40 bg-gradient-to-r from-orange-50/50 to-amber-50/50 dark:from-orange-950/20 dark:to-amber-950/20 px-4 py-3 sm:flex-row sm:items-center sm:justify-between transition-all duration-200 hover:shadow-md hover:border-orange-300">
       <div className="flex min-w-0 items-start gap-3">
-        <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-orange-500/12 text-orange-700 ring-1 ring-orange-500/20 dark:text-orange-300">
-          <Microscope className="size-4" />
+        <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-orange-400 to-amber-500 text-white shadow-md">
+          <Microscope className="size-5" />
         </div>
         <div className="min-w-0">
-          <p className="truncate text-sm font-semibold text-foreground">
+          <p className="truncate text-sm font-bold text-foreground">
             {entry.equipmentName}
           </p>
-          <p className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
-            <CalendarClock className="size-3.5 text-orange-600/70 dark:text-orange-300/70" />
-            <span className="text-foreground/90">
+          <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
+            <CalendarClock className="size-3.5 text-orange-500" />
+            <span className="text-foreground/80 font-medium">
               {format(start, "EEE, dd MMM yyyy, HH:mm")}
               {" – "}
               {format(end, sameDay ? "HH:mm" : "EEE, dd MMM yyyy, HH:mm")}
@@ -191,11 +197,11 @@ function WaitlistRow({ entry }: { entry: WaitlistEntry }) {
         </div>
       </div>
       <div className="flex items-center gap-2 pl-12 sm:pl-0">
-        <Badge variant="secondary" className="text-[10px]">
+        <Badge className="text-[10px] bg-gradient-to-r from-orange-500 to-amber-500 text-white border-0 shadow-sm">
           Waitlisted
         </Badge>
-        <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary ring-1 ring-primary/20">
-          Position {entry.position}
+        <span className="inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-violet-500/20 to-purple-500/20 px-3 py-1 text-xs font-bold text-violet-600 dark:text-violet-400 border border-violet-200 dark:border-violet-800">
+          #{entry.position}
         </span>
       </div>
     </li>
@@ -224,32 +230,32 @@ function BookingRow({
   const sameDay = format(start, "yyyy-MM-dd") === format(end, "yyyy-MM-dd");
 
   return (
-    <Card className="flex flex-col gap-3 rounded-2xl border-border/60 p-4 shadow-soft">
+    <Card className="flex flex-col gap-3 rounded-2xl border-border/40 p-4 shadow-md hover:shadow-lg transition-all duration-200 bg-gradient-to-br from-card to-violet-50/30 dark:to-violet-950/10">
       <div className="flex items-start justify-between gap-3">
         <button
           type="button"
-          className="flex min-w-0 items-center gap-3 text-left"
+          className="flex min-w-0 items-center gap-3 text-left hover:opacity-80 transition-opacity"
           onClick={() => onViewEquipment(booking.equipmentId)}
         >
-          <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-primary/15 to-primary/5 text-primary ring-1 ring-primary/10">
-            <Microscope className="size-4" />
+          <div className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 text-white shadow-md">
+            <Microscope className="size-5" />
           </div>
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
-              <p className="truncate text-sm font-semibold text-foreground">
+              <p className="truncate text-sm font-bold text-foreground">
                 {booking.equipmentName}
               </p>
               {booking.recurrencePattern && (
                 <Badge
                   variant="secondary"
-                  className="text-[10px]"
+                  className="text-[10px] bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300"
                   title={`Recurs ${booking.recurrencePattern.toLowerCase()}`}
                 >
                   ↻ {booking.recurrencePattern}
                 </Badge>
               )}
             </div>
-            <p className="mt-0.5 truncate text-xs text-muted-foreground">
+            <p className="mt-0.5 truncate text-xs text-muted-foreground font-medium">
               Booking #{booking.id}
             </p>
             {booking.parentBookingId !== null && (
@@ -264,21 +270,21 @@ function BookingRow({
 
       <div className="grid grid-cols-1 gap-2 text-sm sm:grid-cols-2">
         <div className="flex items-center gap-2 text-muted-foreground">
-          <CalendarClock className="size-4 shrink-0 text-primary/70" />
-          <span className="text-foreground">
+          <CalendarClock className="size-4 shrink-0 text-violet-500" />
+          <span className="text-foreground font-medium">
             {format(start, "EEE, dd MMM yyyy")}
           </span>
         </div>
         <div className="flex items-center gap-2 text-muted-foreground">
-          <Clock className="size-4 shrink-0 text-primary/70" />
-          <span className="text-foreground">
+          <Clock className="size-4 shrink-0 text-violet-500" />
+          <span className="text-foreground font-medium">
             {format(start, "HH:mm")} –{" "}
             {format(end, sameDay ? "HH:mm" : "dd MMM HH:mm")}
           </span>
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border/60 pt-3">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border/40 pt-3">
         <ActionButtonGroup
           booking={booking}
           currentUser={currentUser}
@@ -289,7 +295,7 @@ function BookingRow({
           variant="outline"
           size="sm"
           onClick={() => onAudit(booking.id)}
-          className="gap-1.5"
+          className="gap-1.5 hover:bg-violet-50 dark:hover:bg-violet-950/30 hover:border-violet-300 transition-colors"
         >
           <History className="size-3.5" />
           View Audit Trail
@@ -488,25 +494,25 @@ export default function ResearcherDashboard() {
               icon={Clock}
               label="Pending"
               value={counts.PENDING ?? 0}
-              accent="bg-amber-500/12 text-amber-700 ring-amber-500/20 dark:text-amber-300"
+              gradient="bg-gradient-to-br from-amber-400 to-yellow-500 text-white"
             />
             <StatCard
               icon={CheckCircle2}
               label="Confirmed"
               value={counts.CONFIRMED ?? 0}
-              accent="bg-blue-500/12 text-blue-700 ring-blue-500/20 dark:text-blue-300"
+              gradient="bg-gradient-to-br from-blue-500 to-indigo-600 text-white"
             />
             <StatCard
               icon={Loader}
               label="In Progress"
               value={counts.IN_PROGRESS ?? 0}
-              accent="bg-cyan-500/12 text-cyan-700 ring-cyan-500/20 dark:text-cyan-300"
+              gradient="bg-gradient-to-br from-cyan-500 to-sky-600 text-white"
             />
             <StatCard
               icon={Hourglass}
               label="Waitlist"
               value={waitlistEntries.length}
-              accent="bg-orange-500/12 text-orange-700 ring-orange-500/20 dark:text-orange-300"
+              gradient="bg-gradient-to-br from-orange-500 to-amber-600 text-white"
             />
           </div>
 

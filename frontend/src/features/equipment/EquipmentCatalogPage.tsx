@@ -194,18 +194,18 @@ export default function EquipmentCatalogPage() {
         description="Browse and book shared lab equipment across your institution."
       />
 
-      {/* Filters bar (frosted) */}
-      <div className="glass rounded-2xl border border-border/60 p-3 shadow-soft sm:p-4">
-        <div className="grid grid-cols-1 gap-2.5 md:grid-cols-2 lg:grid-cols-3">
+      {/* Filters bar (enhanced with gradients) */}
+      <div className="rounded-2xl border border-border/40 bg-gradient-to-br from-card to-violet-50/30 dark:to-violet-950/10 p-4 shadow-md">
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
           {/* Search (committed on Enter / Search button) */}
           <div className="relative">
-            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-violet-500" />
             <Input
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
               onKeyDown={onSearchKeyDown}
               placeholder="Search by name, category or serial…"
-              className="rounded-lg pl-9"
+              className="rounded-xl pl-10 border-violet-200 focus:border-violet-400 focus:ring-violet-200"
               aria-label="Search equipment"
             />
           </div>
@@ -215,7 +215,7 @@ export default function EquipmentCatalogPage() {
             value={filter.category}
             onChange={(e) => setCategoryInput(e.target.value)}
             placeholder="Filter by category"
-            className="rounded-lg"
+            className="rounded-xl border-violet-200 focus:border-violet-400 focus:ring-violet-200"
             aria-label="Filter by category"
           />
 
@@ -225,7 +225,7 @@ export default function EquipmentCatalogPage() {
             onValueChange={setInstitution}
           >
             <SelectTrigger
-              className="w-full rounded-lg"
+              className="w-full rounded-xl border-violet-200 focus:ring-violet-200"
               aria-label="Filter by institution"
             >
               <SelectValue placeholder="All institutions" />
@@ -247,7 +247,7 @@ export default function EquipmentCatalogPage() {
             disabled={!institutionSelected}
           >
             <SelectTrigger
-              className="w-full rounded-lg"
+              className="w-full rounded-xl border-violet-200 focus:ring-violet-200"
               aria-label="Filter by department"
             >
               <SelectValue
@@ -274,7 +274,7 @@ export default function EquipmentCatalogPage() {
             onValueChange={setStatus}
           >
             <SelectTrigger
-              className="w-full rounded-lg"
+              className="w-full rounded-xl border-violet-200 focus:ring-violet-200"
               aria-label="Filter by status"
             >
               <SelectValue placeholder="All statuses" />
@@ -295,7 +295,7 @@ export default function EquipmentCatalogPage() {
             onValueChange={setTag}
           >
             <SelectTrigger
-              className="w-full rounded-lg"
+              className="w-full rounded-xl border-violet-200 focus:ring-violet-200"
               aria-label="Filter by tag"
             >
               <SelectValue placeholder="All tags" />
@@ -311,17 +311,17 @@ export default function EquipmentCatalogPage() {
           </Select>
         </div>
 
-        <div className="mt-2.5 flex flex-wrap items-center justify-between gap-2 px-0.5">
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <Button
               size="sm"
               onClick={commitSearch}
-              className="h-7 gap-1.5 rounded-lg text-xs"
+              className="h-8 gap-1.5 rounded-xl bg-gradient-to-r from-violet-500 to-purple-600 hover:from-violet-600 hover:to-purple-700 shadow-md text-white"
             >
               <Search className="size-3" />
               Search
             </Button>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-xs text-muted-foreground font-medium">
               {loading
                 ? "Loading…"
                 : `${totalElements} item${totalElements === 1 ? "" : "s"}`}
@@ -332,7 +332,7 @@ export default function EquipmentCatalogPage() {
               variant="ghost"
               size="sm"
               onClick={resetFilters}
-              className="h-7 gap-1.5 rounded-lg text-xs text-muted-foreground"
+              className="h-8 gap-1.5 rounded-xl text-xs text-muted-foreground hover:bg-violet-50 dark:hover:bg-violet-950/30"
             >
               <Filter className="size-3" />
               Clear filters

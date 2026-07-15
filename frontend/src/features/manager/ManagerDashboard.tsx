@@ -41,7 +41,7 @@ import { Badge } from "@/components/ui/badge";
 import type { Booking } from "@/types";
 
 // ---------------------------------------------------------------------------
-// Stat card - Enhanced with modern design
+// Stat card - Enhanced with gradients and modern design
 // ---------------------------------------------------------------------------
 
 function StatCard({
@@ -66,7 +66,7 @@ function StatCard({
       <div className="flex items-center gap-3">
         <div
           className={cn(
-            "flex size-11 shrink-0 items-center justify-center rounded-xl shadow-sm",
+            "flex size-12 shrink-0 items-center justify-center rounded-xl shadow-md transition-transform duration-300",
             accent,
           )}
         >
@@ -81,9 +81,9 @@ function StatCard({
       </div>
       {trend && (
         <div className={cn(
-          "flex items-center gap-1 rounded-full px-2 py-1 text-xs font-semibold",
-          trend === "up" && "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400",
-          trend === "down" && "bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400",
+          "flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-bold shadow-sm",
+          trend === "up" && "bg-gradient-to-r from-emerald-500 to-teal-500 text-white",
+          trend === "down" && "bg-gradient-to-r from-rose-500 to-red-500 text-white",
           trend === "neutral" && "bg-muted text-muted-foreground"
         )}>
           <TrendingUp className={cn("size-3", trend === "down" && "rotate-180")} />
@@ -93,11 +93,11 @@ function StatCard({
     </div>
   );
   const cls = cn(
-    "rounded-2xl border border-border/60 bg-card shadow-soft transition-all duration-200",
-    "bg-gradient-to-br from-card to-card/80",
+    "rounded-2xl border border-border/40 bg-card shadow-md transition-all duration-300",
+    "bg-gradient-to-br from-card to-violet-50/20 dark:to-violet-950/10",
     ring,
     onClick &&
-      "cursor-pointer hover:-translate-y-1 hover:shadow-xl hover:border-primary/30 hover:shadow-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
+      "cursor-pointer hover:-translate-y-1 hover:shadow-xl hover:border-primary/30 hover:shadow-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
   );
   return onClick ? (
     <button type="button" onClick={onClick} className={cn(cls, "text-left w-full p-4")}>
@@ -109,7 +109,7 @@ function StatCard({
 }
 
 // ---------------------------------------------------------------------------
-// Quick-link card
+// Quick-link card - Enhanced with gradients
 // ---------------------------------------------------------------------------
 
 function QuickLink({
@@ -117,13 +117,13 @@ function QuickLink({
   title,
   description,
   href,
-  accent,
+  gradient,
 }: {
   icon: React.ComponentType<{ className?: string }>;
   title: string;
   description: string;
   href: string;
-  accent: string;
+  gradient: string;
 }) {
   const { navigate } = useRouter();
   return (
@@ -131,25 +131,26 @@ function QuickLink({
       type="button"
       onClick={() => navigate(href)}
       className={cn(
-        "group flex w-full items-center gap-4 rounded-2xl border border-border/60 bg-card p-4 text-left shadow-soft transition-all duration-200",
-        "hover:-translate-y-0.5 hover:shadow-float hover:border-primary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
+        "group flex w-full items-center gap-4 rounded-2xl border border-border/40 bg-card p-4 text-left shadow-md transition-all duration-300",
+        "hover:-translate-y-1 hover:shadow-xl hover:border-primary/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
+        "bg-gradient-to-br from-card to-transparent"
       )}
     >
       <div
         className={cn(
-          "flex size-11 shrink-0 items-center justify-center rounded-xl ring-1",
-          accent,
+          "flex size-12 shrink-0 items-center justify-center rounded-xl shadow-md transition-transform duration-300 group-hover:scale-110",
+          gradient
         )}
       >
         <Icon className="size-5" />
       </div>
       <div className="min-w-0 flex-1">
-        <p className="text-sm font-semibold text-foreground">{title}</p>
-        <p className="mt-0.5 truncate text-xs text-muted-foreground">
+        <p className="text-sm font-bold text-foreground">{title}</p>
+        <p className="mt-0.5 truncate text-xs text-muted-foreground font-medium">
           {description}
         </p>
       </div>
-      <ArrowRight className="size-4 shrink-0 text-muted-foreground transition-transform duration-200 group-hover:translate-x-0.5 group-hover:text-primary" />
+      <ArrowRight className="size-5 shrink-0 text-muted-foreground transition-all duration-200 group-hover:translate-x-1 group-hover:text-primary group-hover:scale-110" />
     </button>
   );
 }
@@ -174,24 +175,24 @@ function PendingRow({
   const sameDay = format(start, "yyyy-MM-dd") === format(end, "yyyy-MM-dd");
 
   return (
-    <li className="flex flex-col gap-3 rounded-xl border border-border/60 bg-background/40 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+    <li className="flex flex-col gap-3 rounded-xl border border-violet-200/40 bg-gradient-to-r from-violet-50/50 to-purple-50/50 dark:from-violet-950/20 dark:to-purple-950/20 px-4 py-3 sm:flex-row sm:items-center sm:justify-between transition-all duration-200 hover:shadow-md hover:border-violet-300">
       <div className="flex min-w-0 items-start gap-3">
-        <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary ring-1 ring-primary/15">
-          <Microscope className="size-4" />
+        <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 text-white shadow-md">
+          <Microscope className="size-5" />
         </div>
         <div className="min-w-0">
-          <p className="truncate text-sm font-semibold text-foreground">
+          <p className="truncate text-sm font-bold text-foreground">
             {booking.equipmentName}
           </p>
           <p className="mt-0.5 truncate text-xs text-muted-foreground">
             Requested by{" "}
-            <span className="font-medium text-foreground/90">
+            <span className="font-semibold text-violet-600 dark:text-violet-400">
               {booking.username}
             </span>
           </p>
-          <p className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
-            <CalendarClock className="size-3.5 text-amber-600/70 dark:text-amber-300/70" />
-            <span className="text-foreground/90">
+          <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
+            <CalendarClock className="size-3.5 text-amber-500" />
+            <span className="text-foreground/80 font-medium">
               {format(start, "EEE, dd MMM yyyy, HH:mm")}
               {" – "}
               {format(end, sameDay ? "HH:mm" : "EEE, dd MMM yyyy, HH:mm")}
@@ -202,7 +203,7 @@ function PendingRow({
       <div className="flex shrink-0 items-center gap-2 pl-12 sm:pl-0">
         <Button
           size="sm"
-          className="gap-1.5 rounded-lg"
+          className="gap-1.5 rounded-lg bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white shadow-md transition-all"
           onClick={onAccept}
           disabled={busy !== null}
         >
@@ -216,7 +217,7 @@ function PendingRow({
         <Button
           size="sm"
           variant="outline"
-          className="gap-1.5 rounded-lg border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive"
+          className="gap-1.5 rounded-lg border-rose-200 text-rose-600 hover:bg-rose-50 dark:border-rose-800 dark:text-rose-400 dark:hover:bg-rose-950/30 transition-all"
           onClick={onReject}
           disabled={busy !== null}
         >
@@ -552,63 +553,63 @@ export default function ManagerDashboard() {
             icon={Boxes}
             label="Total equipment"
             value={stats?.totalEquipment}
-            accent="bg-cyan-500/12 text-cyan-700 ring-cyan-500/20 dark:text-cyan-300"
+            accent="bg-gradient-to-br from-cyan-500 to-blue-600 text-white"
           />
           <StatCard
             icon={Check}
             label="Available"
             value={stats?.availableCount}
-            accent="bg-emerald-500/12 text-emerald-700 ring-emerald-500/20 dark:text-emerald-300"
+            accent="bg-gradient-to-br from-emerald-500 to-teal-600 text-white"
           />
           <StatCard
             icon={CalendarRange}
             label="Booked"
             value={stats?.bookedCount}
-            accent="bg-amber-500/12 text-amber-700 ring-amber-500/20 dark:text-amber-300"
+            accent="bg-gradient-to-br from-amber-500 to-orange-600 text-white"
           />
           <StatCard
             icon={Wrench}
             label="Under maintenance"
             value={stats?.maintenanceCount}
-            accent="bg-purple-500/12 text-purple-700 ring-purple-500/20 dark:text-purple-300"
+            accent="bg-gradient-to-br from-purple-500 to-violet-600 text-white"
           />
           <StatCard
             icon={Ban}
             label="Out of service"
             value={stats?.outOfServiceCount}
-            accent="bg-zinc-500/12 text-zinc-600 ring-zinc-500/20 dark:text-zinc-300"
+            accent="bg-gradient-to-br from-zinc-500 to-gray-600 text-white"
           />
           <StatCard
             icon={Archive}
             label="Retired"
             value={stats?.retiredCount}
-            accent="bg-rose-500/12 text-rose-700 ring-rose-500/20 dark:text-rose-300"
+            accent="bg-gradient-to-br from-rose-500 to-red-600 text-white"
           />
           <StatCard
             icon={Clock}
             label="Pending approval"
             value={stats?.pendingApprovalCount}
-            accent="bg-amber-500/12 text-amber-700 ring-amber-500/20 dark:text-amber-300"
+            accent="bg-gradient-to-br from-amber-500 to-yellow-600 text-white"
             onClick={() => navigate("/manager/bookings")}
           />
           <StatCard
             icon={CalendarCheck}
             label="Active bookings"
             value={stats?.activeBookingsCount}
-            accent="bg-cyan-500/12 text-cyan-700 ring-cyan-500/20 dark:text-cyan-300"
+            accent="bg-gradient-to-br from-cyan-500 to-sky-600 text-white"
           />
           <StatCard
             icon={ListChecks}
             label="Waitlist"
             value={stats?.waitlistCount}
-            accent="bg-purple-500/12 text-purple-700 ring-purple-500/20 dark:text-purple-300"
+            accent="bg-gradient-to-br from-purple-500 to-pink-600 text-white"
             onClick={() => navigate("/manager/waitlist")}
           />
           <StatCard
             icon={CalendarClock}
             label="Calibrations due (30d)"
             value={stats?.calibrationsDueIn30Days}
-            accent="bg-amber-500/12 text-amber-700 ring-amber-500/20 dark:text-amber-300"
+            accent="bg-gradient-to-br from-amber-500 to-red-600 text-white"
             ring="ring-2 ring-amber-500/40"
             onClick={() => navigate("/manager/calibrations")}
           />
@@ -686,28 +687,28 @@ export default function ManagerDashboard() {
             title="Manage equipment"
             description="Add, edit, and track equipment status."
             href="/manager/equipment"
-            accent="bg-primary/12 text-primary ring-primary/20"
+            gradient="bg-gradient-to-br from-violet-500 to-purple-600 text-white"
           />
           <QuickLink
             icon={CalendarRange}
             title="All bookings"
             description="Review every booking across the lab."
             href="/manager/bookings"
-            accent="bg-cyan-500/12 text-cyan-700 ring-cyan-500/20 dark:text-cyan-300"
+            gradient="bg-gradient-to-br from-cyan-500 to-blue-600 text-white"
           />
           <QuickLink
             icon={CalendarClock}
             title="Calendar"
             description="See bookings on a weekly calendar."
             href="/manager/calendar"
-            accent="bg-cyan-500/12 text-cyan-700 ring-cyan-500/20 dark:text-cyan-300"
+            gradient="bg-gradient-to-br from-teal-500 to-emerald-600 text-white"
           />
           <QuickLink
             icon={Gauge}
             title="Utilization"
             description="Track equipment utilization over time."
             href="/manager/utilization"
-            accent="bg-emerald-500/12 text-emerald-700 ring-emerald-500/20 dark:text-emerald-300"
+            gradient="bg-gradient-to-br from-amber-500 to-orange-600 text-white"
           />
         </div>
       </section>
