@@ -1146,79 +1146,103 @@ function HeatmapTab() {
               description="No bookings occurred for this equipment in the selected period."
             />
           ) : heatmap ? (
-            <Card className="rounded-2xl border-border/60 p-5 shadow-soft">
+            <Card className="rounded-2xl border-border/60 p-6 shadow-soft overflow-hidden">
               <SectionLabel icon={Grid3x3}>
                 Booking intensity heatmap
               </SectionLabel>
               <p className="mt-1 text-xs text-muted-foreground">
-                Each cell = booked hours for that day-of-week × hour-of-day
-                across the selected range. Hover for details.
+                Each cell = booked hours aggregated per day. Darker green = higher utilization.
+                Hover for details.
               </p>
 
-              <div className="mt-4 overflow-x-auto">
-                <div className="min-w-[680px]">
-                  {/* Hour header row */}
-                  <div className="flex items-end gap-px pl-10">
-                    {Array.from({ length: 24 }, (_, h) => (
-                      <div
-                        key={h}
-                        className="flex-1 text-center text-[10px] text-muted-foreground"
-                      >
-                        {h}
-                      </div>
-                    ))}
-                  </div>
-                  {/* Day rows */}
-                  <div className="mt-1 flex flex-col gap-px">
-                    {grid.map((row, d) => (
-                      <div key={d} className="flex items-center gap-px">
-                        <div className="w-10 shrink-0 text-[11px] font-medium text-muted-foreground">
-                          {DAY_LABELS[d]}
-                        </div>
-                        {row.map((cell, h) => {
-                          const intensity =
-                            maxBooked > 0
-                              ? Math.round((cell.booked / maxBooked) * 100)
-                              : 0;
-                          const bg =
-                            cell.booked === 0
-                              ? "color-mix(in oklch, var(--muted) 35%, transparent)"
-                              : `color-mix(in oklch, var(--primary) ${Math.max(
-                                  12,
-                                  intensity,
-                                )}%, transparent)`;
-                          return (
+              {/* GitHub-style heatmap */}
+              <div className="mt-6 overflow-x-auto pb-2">
+                <div className="min-w-[600px]">
+                  {/* Day labels on left */}
+                  <div className="flex">
+                    <div className="flex flex-col justify-between mr-3 py-1">
+                      <div className="h-[12px] text-[10px] text-muted-foreground text-right w-8">Sun</div>
+                      <div className="h-[12px] text-[10px] text-muted-foreground text-right w-8">Mon</div>
+                      <div className="h-[12px] text-[10px] text-muted-foreground text-right w-8">Tue</div>
+                      <div className="h-[12px] text-[10px] text-muted-foreground text-right w-8">Wed</div>
+                      <div className="h-[12px] text-[10px] text-muted-foreground text-right w-8">Thu</div>
+                      <div className="h-[12px] text-[10px] text-muted-foreground text-right w-8">Fri</div>
+                      <div className="h-[12px] text-[10px] text-muted-foreground text-right w-8">Sat</div>
+                    </div>
+
+                    {/* Heatmap grid - aggregate by day of week */}
+                    <div className="flex gap-[4px]">
+                      {grid.map((dayData, dayIdx) => {
+                        // Aggregate all hours for this day of week
+                        const totalBooked = dayData.reduce((sum, h) => sum + h.booked, 0);
+                        const totalCount = dayData.reduce((sum, h) => sum + h.count, 0);
+                        const intensity = maxBooked > 0 ? Math.round((totalBooked / maxBooked) * 100) : 0;
+                        
+                        // GitHub-inspired colors: emerald green gradient
+                        const getBgColor = (intensity: number, booked: number) => {
+                          if (booked === 0) return 'bg-[#ebedf0] dark:bg-[#161b22]';
+                          if (intensity < 15) return 'bg-[#9be9a8]';
+                          if (intensity < 30) return 'bg-[#40c463]';
+                          if (intensity < 60) return 'bg-[#30a14e]';
+                          return 'bg-[#216e39]';
+                        };
+                        
+                        return (
+                          <div key={dayIdx} className="flex flex-col gap-[4px]">
+                            <div className="text-[10px] text-muted-foreground text-center mb-1">
+                              {DAY_LABELS[dayIdx]}
+                            </div>
                             <div
-                              key={h}
-                              title={`${DAY_LABELS[d]} ${h}:00 — ${fmtHours(
-                                cell.booked,
-                              )}h booked · ${cell.count} booking${
-                                cell.count === 1 ? "" : "s"
-                              }`}
-                              className="h-6 flex-1 rounded-[3px] ring-1 ring-inset ring-border/30 transition-transform hover:scale-110"
-                              style={{ backgroundColor: bg }}
-                            />
-                          );
-                        })}
-                      </div>
-                    ))}
+                              title={`${DAY_LABELS[dayIdx]} — ${fmtHours(totalBooked)}h booked · ${totalCount} booking${totalCount === 1 ? '' : 's'}`}
+                              className={cn(
+                                "w-[52px] h-[52px] rounded-lg transition-all duration-200 hover:ring-2 hover:ring-offset-2 hover:ring-[#216e39] cursor-pointer flex items-center justify-center shadow-sm",
+                                getBgColor(intensity, totalBooked)
+                              )}
+                            >
+                              <span className={cn(
+                                "text-xs font-semibold",
+                                totalBooked === 0 ? "text-muted-foreground" : "text-white drop-shadow-md"
+                              )}>
+                                {totalBooked > 0 ? fmtHours(totalBooked) + 'h' : '-'}
+                              </span>
+                            </div>
+                            {/* Hour breakdown on hover */}
+                            <div className="space-y-0.5">
+                              {[0, 6, 12, 18].map(h => (
+                                <div key={h} className="text-[8px] text-muted-foreground text-center">
+                                  {dayData[h]?.booked > 0 ? `${fmtHours(dayData[h].booked)}h` : ''}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Hour legend at bottom */}
+                  <div className="flex justify-center gap-6 mt-4 text-[10px] text-muted-foreground">
+                    <span>Midnight</span>
+                    <span>6 AM</span>
+                    <span>Noon</span>
+                    <span>6 PM</span>
                   </div>
                 </div>
               </div>
 
               {/* Legend */}
-              <div className="mt-5 flex flex-wrap items-center gap-3">
+              <div className="mt-6 flex items-center gap-3">
                 <span className="text-xs text-muted-foreground">Less</span>
-                <div
-                  className="h-2 w-40 rounded-full"
-                  style={{
-                    background:
-                      "linear-gradient(to right, color-mix(in oklch, var(--muted) 35%, transparent), var(--primary))",
-                  }}
-                />
+                <div className="flex gap-[4px]">
+                  <div className="w-6 h-6 rounded-lg bg-[#ebedf0] dark:bg-[#161b22]" />
+                  <div className="w-6 h-6 rounded-lg bg-[#9be9a8]" />
+                  <div className="w-6 h-6 rounded-lg bg-[#40c463]" />
+                  <div className="w-6 h-6 rounded-lg bg-[#30a14e]" />
+                  <div className="w-6 h-6 rounded-lg bg-[#216e39]" />
+                </div>
                 <span className="text-xs text-muted-foreground">More</span>
-                <span className="ml-auto text-xs text-muted-foreground">
-                  Max booked hours in range: {fmtHours(maxBooked)}h
+                <span className="ml-auto text-xs text-muted-foreground font-medium">
+                  Peak: {fmtHours(maxBooked)}h booked in a slot
                 </span>
               </div>
               <p className="mt-3 text-xs text-muted-foreground">
