@@ -508,272 +508,156 @@ function FilterBar({
 }
 
 // ---------------------------------------------------------------------------
-// GitHub-Style Multi-View Heatmap Component
+// Heatmap Component - Enhanced UI
 // ---------------------------------------------------------------------------
 
-type HeatmapView = "year" | "month" | "week";
-
 function UtilizationHeatmap({ data }: { data: HeatmapReport }) {
-  const [view, setView] = useState<HeatmapView>("year");
-  const [hoveredCell, setHoveredCell] = React.useState<{ label: string; hours: number; count: number } | null>(null);
+  const hours = Array.from({ length: 24 }, (_, i) => i);
+  const days = DAY_LABELS;
+  const [hoveredCell, setHoveredCell] = React.useState<{day: string; hour: number; hours: number} | null>(null);
 
-  const periodStart = parseISO(data.periodStart);
-  const periodEnd = parseISO(data.periodEnd);
-
-  const dataMap = React.useMemo(() => {
-    const map = new Map<string, { hours: number; count: number }>();
+  const heatmapData = React.useMemo(() => {
+    const map = new Map<string, number>();
     data.heatmap.forEach((point) => {
-      const key = `${point.dayOfWeek}-${point.hourOfDay}`;
-      const existing = map.get(key) || { hours: 0, count: 0 };
-      map.set(key, {
-        hours: existing.hours + point.bookedHours,
-        count: existing.count + point.bookingCount,
-      });
+      const key = `${dayIdx(point.dayOfWeek)}-${point.hourOfDay}`;
+      map.set(key, point.bookedHours);
     });
     return map;
   }, [data.heatmap]);
 
-  const maxHours = React.useMemo(() => {
-    return Math.max(...Array.from(dataMap.values()).map((d) => d.hours), 1);
-  }, [dataMap]);
+  const maxHours = Math.max(...data.heatmap.map((h) => h.bookedHours), 1);
 
-  const getColor = (hours: number) => {
-    if (hours === 0) return "bg-[#ebedf0] dark:bg-[#161b22]";
-    const intensity = (hours / maxHours) * 100;
-    if (intensity < 25) return "bg-[#9be9a8] dark:bg-[#39d353]/20";
-    if (intensity < 50) return "bg-[#40c463] dark:bg-[#39d353]/40";
-    if (intensity < 75) return "bg-[#30a14e] dark:bg-[#39d353]/60";
-    return "bg-[#216e39] dark:bg-[#39d353]/80";
+  const getColor = (hours: number, hovered = false) => {
+    const intensity = maxHours > 0 ? hours / maxHours : 0;
+
+    if (hours === 0) {
+      return {
+        bg: "bg-slate-100 dark:bg-slate-800/50",
+        text: "text-slate-400 dark:text-slate-500",
+      };
+    }
+
+    if (intensity < 0.2) {
+      return { bg: "bg-emerald-100 dark:bg-emerald-900/30", text: "text-emerald-700 dark:text-emerald-300" };
+    }
+    if (intensity < 0.4) {
+      return { bg: "bg-teal-100 dark:bg-teal-900/30", text: "text-teal-700 dark:text-teal-300" };
+    }
+    if (intensity < 0.6) {
+      return { bg: "bg-blue-100 dark:bg-blue-900/30", text: "text-blue-700 dark:text-blue-300" };
+    }
+    if (intensity < 0.8) {
+      return { bg: "bg-amber-100 dark:bg-amber-900/30", text: "text-amber-700 dark:text-amber-300" };
+    }
+    return { bg: "bg-rose-100 dark:bg-rose-900/30", text: "text-rose-700 dark:text-rose-300" };
   };
 
-  const yearView = React.useMemo(() => {
-    const weeks: { date: Date; hours: number; count: number }[][] = [];
-    const startDate = subDays(new Date(), 365);
-    let currentWeek: { date: Date; hours: number; count: number }[] = [];
-
-    for (let i = 0; i < 365; i++) {
-      const date = new Date(startDate);
-      date.setDate(date.getDate() + i);
-      const dayOfWeek = date.getDay();
-      const dayName = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][dayOfWeek];
-
-      let dayHours = 0;
-      let dayCount = 0;
-      for (let h = 0; h < 24; h++) {
-        const key = `${dayName.toUpperCase()}-${h}`;
-        const d = dataMap.get(key);
-        if (d) { dayHours += d.hours; dayCount += d.count; }
-      }
-      currentWeek.push({ date, hours: dayHours, count: dayCount });
-      if (dayOfWeek === 6) { weeks.push(currentWeek); currentWeek = []; }
-    }
-    if (currentWeek.length > 0) weeks.push(currentWeek);
-    return weeks;
-  }, [dataMap]);
-
-  const monthView = React.useMemo(() => {
-    const weeks: { date: Date; hours: number; count: number }[][] = [];
-    const startDate = subMonths(new Date(), 1);
-    let currentWeek: { date: Date; hours: number; count: number }[] = [];
-
-    for (let i = 0; i < 35; i++) {
-      const date = new Date(startDate);
-      date.setDate(date.getDate() + i);
-      const dayOfWeek = date.getDay();
-      const dayName = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][dayOfWeek];
-
-      let dayHours = 0;
-      let dayCount = 0;
-      for (let h = 0; h < 24; h++) {
-        const key = `${dayName.toUpperCase()}-${h}`;
-        const d = dataMap.get(key);
-        if (d) { dayHours += d.hours; dayCount += d.count; }
-      }
-      currentWeek.push({ date, hours: dayHours, count: dayCount });
-      if (dayOfWeek === 6) { weeks.push(currentWeek); currentWeek = []; }
-    }
-    if (currentWeek.length > 0) weeks.push(currentWeek);
-    return weeks;
-  }, [dataMap]);
-
-  const weekView = React.useMemo(() => {
-    const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-    return days.map((day) => {
-      const hours: { hour: number; hours: number; count: number }[] = [];
-      for (let h = 0; h < 24; h++) {
-        const key = `${day.toUpperCase()}-${h}`;
-        const d = dataMap.get(key) || { hours: 0, count: 0 };
-        hours.push({ hour: h, hours: d.hours, count: d.count });
-      }
-      return { day, hours };
-    });
-  }, [dataMap]);
-
-  const totalHours = Array.from(dataMap.values()).reduce((sum, d) => sum + d.hours, 0);
-  const totalBookings = Array.from(dataMap.values()).reduce((sum, d) => sum + d.count, 0);
-  const activeDays = new Set(Array.from(dataMap.entries()).filter(([, d]) => d.hours > 0).map(([k]) => k.split("-")[0])).size;
+  const formatHour = (h: number) => {
+    if (h === 0) return "12 AM";
+    if (h === 12) return "12 PM";
+    return h > 12 ? `${h - 12} PM` : `${h} AM`;
+  };
 
   return (
     <Card className="rounded-2xl border-border/60 overflow-hidden shadow-soft">
-      <div className="bg-gradient-to-r from-emerald-50/50 to-teal-50/50 dark:from-emerald-950/20 dark:to-teal-950/20 px-5 py-4 border-b border-border/40">
-        <div className="flex items-center justify-between flex-wrap gap-3">
+      <div className="bg-gradient-to-r from-muted/50 to-muted/30 px-5 py-4 border-b border-border/40">
+        <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow-md">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 text-primary shadow-sm">
               <Grid3x3 className="size-5" />
             </div>
             <div>
-              <h3 className="font-semibold text-base">Booking Activity</h3>
-              <p className="text-xs text-muted-foreground">GitHub-style contribution graph</p>
+              <h3 className="font-semibold text-base">Weekly Utilization Heatmap</h3>
+              <p className="text-xs text-muted-foreground">
+                Equipment usage patterns by day and hour
+              </p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <div className="flex bg-muted rounded-lg p-1">
-              {(["year", "month", "week"] as HeatmapView[]).map((v) => (
-                <button key={v} onClick={() => setView(v)} className={cn("px-3 py-1 text-xs font-medium rounded-md transition-all capitalize", view === v ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground")}>{v}</button>
-              ))}
-            </div>
-            <Badge variant="outline" className="text-xs font-medium px-3 py-1.5 bg-background/50">
-              <Calendar className="size-3 mr-1.5" />
-              {format(periodStart, "MMM d")} - {format(periodEnd, "MMM d, yyyy")}
-            </Badge>
-          </div>
+          <Badge variant="outline" className="text-xs font-medium px-3 py-1.5 bg-background/50">
+            <Calendar className="size-3 mr-1.5" />
+            {format(parseISO(data.periodStart), "MMM d")} - {format(parseISO(data.periodEnd), "MMM d")}
+          </Badge>
         </div>
       </div>
 
       <div className="p-5">
-        {view === "year" && (
-          <div>
-            <div className="flex ml-8 mb-1">
-              {["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"].map((m) => (
-                <div key={m} className="text-[10px] text-muted-foreground" style={{ width: `${100/12}%` }}>{m}</div>
-              ))}
-            </div>
-            <div className="flex">
-              <div className="flex flex-col justify-between mr-2" style={{ height: '112px' }}>
-                <div></div><div className="text-[10px] text-muted-foreground">Mon</div><div></div>
-                <div className="text-[10px] text-muted-foreground">Wed</div><div></div>
-                <div className="text-[10px] text-muted-foreground">Fri</div><div></div>
-              </div>
-              <div className="flex gap-[2px] overflow-x-auto pb-1">
-                {yearView.map((week, weekIdx) => (
-                  <div key={weekIdx} className="flex flex-col gap-[2px]">
-                    {week.map((day, dayIdx) => {
-                      const isHovered = hoveredCell?.label === format(day.date, "MMM d");
-                      return (
-                        <div key={dayIdx} title={`${format(day.date, "EEE, MMM d, yyyy")}: ${day.hours.toFixed(2)}h, ${day.count} bookings`}
-                          className={cn("w-[11px] h-[11px] rounded-sm cursor-pointer transition-all duration-150", getColor(day.hours), isHovered && "ring-2 ring-[#216e39] scale-125")}
-                          onMouseEnter={() => setHoveredCell({ label: format(day.date, "MMM d"), hours: day.hours, count: day.count })}
-                          onMouseLeave={() => setHoveredCell(null)} />
-                      );
-                    })}
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {view === "month" && (
-          <div>
-            <div className="flex mb-2 ml-8 gap-1">
-              {["S", "M", "T", "W", "T", "F", "S"].map((d, i) => (
-                <div key={i} className="w-8 text-center text-[10px] text-muted-foreground">{d}</div>
-              ))}
-            </div>
-            <div className="flex">
-              <div className="flex flex-col justify-between mr-2" style={{ height: '224px' }}>
-                <div className="text-[10px] text-muted-foreground">Mon</div>
-                <div className="text-[10px] text-muted-foreground">Wed</div>
-                <div className="text-[10px] text-muted-foreground">Fri</div>
-              </div>
-              <div className="flex flex-col gap-1">
-                {monthView.map((week, weekIdx) => (
-                  <div key={weekIdx} className="flex gap-1">
-                    {week.map((day, dayIdx) => {
-                      const isFuture = day.date > new Date();
-                      const isHovered = hoveredCell?.label === format(day.date, "MMM d");
-                      return (
-                        <div key={dayIdx} title={`${format(day.date, "EEE, MMM d")}: ${day.hours.toFixed(2)}h, ${day.count} bookings`}
-                          className={cn("w-8 h-8 rounded-md cursor-pointer transition-all duration-150 flex items-center justify-center text-[9px] font-medium", getColor(day.hours), isFuture && "opacity-30 cursor-default", isHovered && !isFuture && "ring-2 ring-[#216e39] scale-110")}
-                          onMouseEnter={() => !isFuture && setHoveredCell({ label: format(day.date, "MMM d"), hours: day.hours, count: day.count })}
-                          onMouseLeave={() => setHoveredCell(null)}>
-                          {format(day.date, "d")}
-                        </div>
-                      );
-                    })}
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {view === "week" && (
-          <div className="space-y-2">
-            {weekView.map(({ day, hours }) => (
-              <div key={day} className="flex items-center gap-2">
-                <div className="w-10 text-xs font-medium text-muted-foreground text-right">{day}</div>
-                <div className="flex gap-[1px] flex-1">
-                  {hours.map(({ hour, hours: h, count }) => {
-                    const isHovered = hoveredCell?.label === `${day} ${hour}:00`;
-                    return (
-                      <div key={hour} title={`${day} ${hour}:00 - ${h.toFixed(2)}h, ${count} bookings`}
-                        className={cn("flex-1 h-6 rounded-sm cursor-pointer transition-all duration-150", getColor(h), isHovered && "ring-2 ring-[#216e39] scale-105")}
-                        onMouseEnter={() => setHoveredCell({ label: `${day} ${hour}:00`, hours: h, count })}
-                        onMouseLeave={() => setHoveredCell(null)} />
-                    );
-                  })}
-                </div>
-              </div>
+        <div className="flex mb-3 ml-12">
+          <div className="text-[10px] text-muted-foreground/60 font-medium grid grid-cols-24 gap-0.5 w-full">
+            {hours.filter((_, i) => i % 3 === 0).map((hour) => (
+              <div key={hour} className="text-center">{formatHour(hour)}</div>
             ))}
-            <div className="flex ml-12 gap-[1px]">
-              {Array.from({ length: 24 }, (_, i) => (
-                <div key={i} className="flex-1 text-center text-[8px] text-muted-foreground">{i % 6 === 0 ? `${i}` : ""}</div>
-              ))}
-            </div>
           </div>
-        )}
-
-        <div className="mt-5 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-muted-foreground">Less</span>
-            <div className="flex gap-[2px]">
-              <div className="w-3 h-3 rounded-sm bg-[#ebedf0] dark:bg-[#161b22]" />
-              <div className="w-3 h-3 rounded-sm bg-[#9be9a8]" />
-              <div className="w-3 h-3 rounded-sm bg-[#40c463]" />
-              <div className="w-3 h-3 rounded-sm bg-[#30a14e]" />
-              <div className="w-3 h-3 rounded-sm bg-[#216e39]" />
-            </div>
-            <span className="text-xs text-muted-foreground">More</span>
-          </div>
-          {hoveredCell && (
-            <div className="flex items-center gap-2 text-xs bg-emerald-50 dark:bg-emerald-950/30 px-3 py-1.5 rounded-lg border border-emerald-200 dark:border-emerald-800">
-              <span className="font-medium">{hoveredCell.label}:</span>
-              <span className="font-bold text-emerald-600 dark:text-emerald-400">{hoveredCell.hours.toFixed(2)}h</span>
-              <span className="text-muted-foreground">({hoveredCell.count})</span>
-            </div>
-          )}
         </div>
 
-        <div className="mt-5 grid grid-cols-3 gap-3">
-          <div className="text-center p-3 rounded-xl bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-950/30 dark:to-teal-950/30 border border-emerald-100 dark:border-emerald-800/30">
-            <div className="text-xl font-bold text-emerald-600 dark:text-emerald-400">{totalHours.toFixed(1)}h</div>
-            <div className="text-xs text-muted-foreground">Total Hours</div>
+        <div className="space-y-1.5">
+          {days.map((day, dayIdx) => (
+            <div key={day} className="flex items-center gap-2">
+              <div className="w-12 text-xs font-medium text-muted-foreground text-right pr-2">
+                {day}
+              </div>
+              <div className="flex gap-0.5 flex-1">
+                {hours.map((hour) => {
+                  const key = `${dayIdx}-${hour}`;
+                  const hoursBooked = heatmapData.get(key) || 0;
+                  const color = getColor(hoursBooked, hoveredCell?.day === day && hoveredCell?.hour === hour);
+                  const isHovered = hoveredCell?.day === day && hoveredCell?.hour === hour;
+
+                  return (
+                    <div
+                      key={hour}
+                      className={cn(
+                        "flex-1 h-7 rounded-md flex items-center justify-center text-[10px] font-semibold transition-all duration-200 cursor-pointer",
+                        color.bg,
+                        color.text,
+                        isHovered && "ring-2 ring-offset-1 ring-offset-background z-10 scale-110 shadow-lg"
+                      )}
+                      onMouseEnter={() => setHoveredCell({ day, hour, hours: hoursBooked })}
+                      onMouseLeave={() => setHoveredCell(null)}
+                    >
+                      {hoursBooked > 0 && hoursBooked < 10 && hoursBooked.toFixed(1)}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="mt-6 pt-4 border-t border-border/40">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-medium text-muted-foreground">Utilization:</span>
+              <div className="flex items-center gap-1">
+                <div className="w-6 h-6 rounded-md bg-slate-100 dark:bg-slate-800/50 flex items-center justify-center text-[9px] font-semibold text-slate-400">0</div>
+                <div className="w-6 h-6 rounded-md bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center text-[9px] font-semibold text-emerald-700">L</div>
+                <div className="w-6 h-6 rounded-md bg-teal-100 dark:bg-teal-900/30 flex items-center justify-center text-[9px] font-semibold text-teal-700">L</div>
+                <div className="w-6 h-6 rounded-md bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-[9px] font-semibold text-blue-700">M</div>
+                <div className="w-6 h-6 rounded-md bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center text-[9px] font-semibold text-amber-700">H</div>
+                <div className="w-6 h-6 rounded-md bg-rose-100 dark:bg-rose-900/30 flex items-center justify-center text-[9px] font-semibold text-rose-700">V</div>
+              </div>
+            </div>
+            {hoveredCell ? (
+              <div className="flex items-center gap-2 text-xs bg-muted/50 px-3 py-1.5 rounded-lg border border-border/40">
+                <Clock className="size-3.5 text-primary" />
+                <span className="font-medium">{hoveredCell.day} {formatHour(hoveredCell.hour)}:</span>
+                <Badge variant="outline" className="text-xs font-bold bg-primary/10 text-primary border-primary/20">
+                  {hoveredCell.hours > 0 ? `${hoveredCell.hours.toFixed(2)}h` : "No usage"}
+                </Badge>
+              </div>
+            ) : (
+              <span className="text-xs text-muted-foreground/60">Hover over cells for details</span>
+            )}
           </div>
-          <div className="text-center p-3 rounded-xl bg-gradient-to-br from-violet-50 to-purple-50 dark:from-violet-950/30 dark:to-purple-950/30 border border-violet-100 dark:border-violet-800/30">
-            <div className="text-xl font-bold text-violet-600 dark:text-violet-400">{totalBookings}</div>
-            <div className="text-xs text-muted-foreground">Total Bookings</div>
-          </div>
-          <div className="text-center p-3 rounded-xl bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-950/30 dark:to-orange-950/30 border border-amber-100 dark:border-amber-800/30">
-            <div className="text-xl font-bold text-amber-600 dark:text-amber-400">{activeDays}</div>
-            <div className="text-xs text-muted-foreground">Active Days</div>
+          <div className="mt-3 flex items-center gap-2">
+            <span className="text-[10px] text-muted-foreground/60">No Usage</span>
+            <div className="flex-1 h-2 rounded-full bg-gradient-to-r from-slate-100 via-emerald-200 teal-200 blue-200 amber-200 to-rose-200 dark:from-slate-800/50 dark:via-emerald-900/30 dark:to-rose-900/30" />
+            <span className="text-[10px] text-muted-foreground/60">Peak Usage</span>
           </div>
         </div>
       </div>
     </Card>
   );
 }
-// ---------------------------------------------------------------------------
 // Idle Equipment Component
 // ---------------------------------------------------------------------------
 
