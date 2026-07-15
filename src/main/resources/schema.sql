@@ -58,12 +58,8 @@ BEGIN
     ) INTO column_exists;
     
     IF NOT column_exists THEN
-        -- Add the column if it doesn't exist
-        ALTER TABLE waitlists ADD COLUMN notified boolean NOT NULL DEFAULT false;
-    ELSE
-        -- Ensure notified column has proper default and is not null
-        ALTER TABLE waitlists ALTER COLUMN notified SET DEFAULT false;
-        ALTER TABLE waitlists ALTER COLUMN notified SET NOT NULL;
+        -- Add the column if it doesn't exist (nullable to avoid issues)
+        ALTER TABLE waitlists ADD COLUMN notified boolean DEFAULT false;
     END IF;
 END $$;
 

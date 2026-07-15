@@ -30,8 +30,8 @@ public class Waitlist {
     @Column(nullable = false)
     private Integer position;
 
-    @Column(name = "notified", nullable = false)
-    private Boolean notified = false;
+    @Column(name = "notified", nullable = true)
+    private Boolean notified;
 
     @Column(updatable = false)
     private LocalDateTime createdAt;
