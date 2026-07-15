@@ -378,6 +378,7 @@ public class BookingService {
 
     /**
      * Find all bookings for the current LAB_MANAGER's department.
+     * LAB_MANAGER sees bookings made by users in their department.
      * If the user has no department, returns all bookings (for SYSTEM_ADMIN).
      */
     @Transactional(readOnly = true)
@@ -393,9 +394,9 @@ public class BookingService {
             return bookingRepo.findAll();
         }
         
-        // LAB_MANAGER sees only their department's bookings
+        // LAB_MANAGER sees bookings made by users in their department
         if (currentUser.getDepartment() != null) {
-            return bookingRepo.findByDepartmentId(currentUser.getDepartment().getId());
+            return bookingRepo.findByUserDepartmentId(currentUser.getDepartment().getId());
         }
         
         // If no department, return empty list

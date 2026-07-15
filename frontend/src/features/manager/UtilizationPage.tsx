@@ -1146,57 +1146,71 @@ function HeatmapTab() {
               description="No bookings occurred for this equipment in the selected period."
             />
           ) : heatmap ? (
-            <Card className="rounded-2xl border-border/60 p-5 shadow-soft">
+            <Card className="rounded-2xl border-border/60 p-6 shadow-soft overflow-hidden">
               <SectionLabel icon={Grid3x3}>
                 Booking intensity heatmap
               </SectionLabel>
               <p className="mt-1 text-xs text-muted-foreground">
-                Each cell = booked hours for that day-of-week × hour-of-day
-                across the selected range. Hover for details.
+                GitHub-style contribution graph. Each square = one week's booking hours.
+                Darker green = higher utilization.
               </p>
 
-              <div className="mt-4 overflow-x-auto">
-                <div className="min-w-[680px]">
-                  {/* Hour header row */}
-                  <div className="flex items-end gap-px pl-10">
-                    {Array.from({ length: 24 }, (_, h) => (
-                      <div
-                        key={h}
-                        className="flex-1 text-center text-[10px] text-muted-foreground"
-                      >
-                        {h}
-                      </div>
-                    ))}
-                  </div>
-                  {/* Day rows */}
-                  <div className="mt-1 flex flex-col gap-px">
-                    {grid.map((row, d) => (
-                      <div key={d} className="flex items-center gap-px">
-                        <div className="w-10 shrink-0 text-[11px] font-medium text-muted-foreground">
-                          {DAY_LABELS[d]}
+              {/* GitHub-style Weekly Heatmap */}
+              <div className="mt-6">
+                {/* Month labels */}
+                <div className="flex ml-10 mb-2">
+                  {(() => {
+                    const startMs = new Date(toISOStart(start)).getTime();
+                    const endMs = new Date(toISOEnd(end)).getTime();
+                    const diffDays = Math.ceil((endMs - startMs) / (7 * 24 * 60 * 60 * 1000)) + 1;
+                    return Array.from({ length: diffDays }, (_, i) => {
+                      const date = new Date(startMs + i * 7 * 24 * 60 * 60 * 1000);
+                      return (
+                        <div key={i} className="text-[11px] text-muted-foreground" style={{ minWidth: '16px' }}>
+                          {format(date, 'MMM')}
                         </div>
-                        {row.map((cell, h) => {
-                          const intensity =
-                            maxBooked > 0
-                              ? Math.round((cell.booked / maxBooked) * 100)
-                              : 0;
-                          const bg =
-                            cell.booked === 0
-                              ? "color-mix(in oklch, var(--muted) 35%, transparent)"
-                              : `color-mix(in oklch, var(--primary) ${Math.max(
-                                  12,
-                                  intensity,
-                                )}%, transparent)`;
+                      );
+                    });
+                  })()}
+                </div>
+
+                {/* Heatmap grid */}
+                <div className="flex">
+                  {/* Day labels on left */}
+                  <div className="flex flex-col justify-between mr-2" style={{ height: '112px' }}>
+                    <div className="text-[10px] text-muted-foreground">Mon</div>
+                    <div className="text-[10px] text-muted-foreground">Wed</div>
+                    <div className="text-[10px] text-muted-foreground">Fri</div>
+                  </div>
+
+                  {/* Weekly squares - convert grid to weeks */}
+                  <div className="flex gap-[3px] overflow-x-auto pb-2">
+                    {Array.from({ length: Math.ceil(grid[0].length / 24) }, (_, weekIdx) => (
+                      <div key={weekIdx} className="flex flex-col gap-[3px]">
+                        {grid.map((dayData, dayIdx) => {
+                          // Aggregate hours for this week
+                          const hourData = dayData.slice(weekIdx * 24, Math.min((weekIdx + 1) * 24, dayData.length));
+                          const weekBooked = hourData.reduce((sum, h) => sum + h.booked, 0);
+                          const weekCount = hourData.reduce((sum, h) => sum + h.count, 0);
+                          const intensity = maxBooked > 0 ? Math.round((weekBooked / maxBooked) * 100) : 0;
+                          
+                          // GitHub colors
+                          const getBgColor = (intensity: number, booked: number) => {
+                            if (booked === 0) return 'bg-[#ebedf0] dark:bg-[#1a2234]';
+                            if (intensity < 15) return 'bg-[#9be9a8]';
+                            if (intensity < 30) return 'bg-[#40c463]';
+                            if (intensity < 60) return 'bg-[#30a14e]';
+                            return 'bg-[#216e39]';
+                          };
+                          
                           return (
                             <div
-                              key={h}
-                              title={`${DAY_LABELS[d]} ${h}:00 — ${fmtHours(
-                                cell.booked,
-                              )}h booked · ${cell.count} booking${
-                                cell.count === 1 ? "" : "s"
-                              }`}
-                              className="h-6 flex-1 rounded-[3px] ring-1 ring-inset ring-border/30 transition-transform hover:scale-110"
-                              style={{ backgroundColor: bg }}
+                              key={dayIdx}
+                              title={`${DAY_LABELS[dayIdx]} (Week ${weekIdx + 1}) — ${fmtHours(weekBooked)}h, ${weekCount} bookings`}
+                              className={cn(
+                                "w-[14px] h-[14px] rounded-sm transition-all duration-200 hover:ring-2 hover:ring-[#216e39] cursor-pointer",
+                                getBgColor(intensity, weekBooked)
+                              )}
                             />
                           );
                         })}
@@ -1204,26 +1218,50 @@ function HeatmapTab() {
                     ))}
                   </div>
                 </div>
+
+                {/* Legend */}
+                <div className="mt-6 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-muted-foreground">Less</span>
+                    <div className="flex gap-[3px]">
+                      <div className="w-[14px] h-[14px] rounded-sm bg-[#ebedf0] dark:bg-[#1a2234]" />
+                      <div className="w-[14px] h-[14px] rounded-sm bg-[#9be9a8]" />
+                      <div className="w-[14px] h-[14px] rounded-sm bg-[#40c463]" />
+                      <div className="w-[14px] h-[14px] rounded-sm bg-[#30a14e]" />
+                      <div className="w-[14px] h-[14px] rounded-sm bg-[#216e39]" />
+                    </div>
+                    <span className="text-xs text-muted-foreground">More</span>
+                  </div>
+                  <span className="text-xs text-muted-foreground">
+                    {fmtHours(maxBooked)}h peak
+                  </span>
+                </div>
+
+                {/* Summary stats */}
+                <div className="mt-6 grid grid-cols-3 gap-4">
+                  <div className="text-center p-3 rounded-xl bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-950/30 dark:to-teal-950/30">
+                    <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">
+                      {fmtHours(grid.flat().reduce((sum, d) => sum + d.booked, 0))}
+                    </div>
+                    <div className="text-xs text-muted-foreground">Total Hours</div>
+                  </div>
+                  <div className="text-center p-3 rounded-xl bg-gradient-to-br from-violet-50 to-purple-50 dark:from-violet-950/30 dark:to-purple-950/30">
+                    <div className="text-2xl font-bold text-violet-600 dark:text-violet-400">
+                      {grid.flat().reduce((sum, d) => sum + d.count, 0)}
+                    </div>
+                    <div className="text-xs text-muted-foreground">Total Bookings</div>
+                  </div>
+                  <div className="text-center p-3 rounded-xl bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-950/30 dark:to-orange-950/30">
+                    <div className="text-2xl font-bold text-amber-600 dark:text-amber-400">
+                      {grid.flat().filter(d => d.booked > 0).length}
+                    </div>
+                    <div className="text-xs text-muted-foreground">Active Slots</div>
+                  </div>
+                </div>
               </div>
 
-              {/* Legend */}
-              <div className="mt-5 flex flex-wrap items-center gap-3">
-                <span className="text-xs text-muted-foreground">Less</span>
-                <div
-                  className="h-2 w-40 rounded-full"
-                  style={{
-                    background:
-                      "linear-gradient(to right, color-mix(in oklch, var(--muted) 35%, transparent), var(--primary))",
-                  }}
-                />
-                <span className="text-xs text-muted-foreground">More</span>
-                <span className="ml-auto text-xs text-muted-foreground">
-                  Max booked hours in range: {fmtHours(maxBooked)}h
-                </span>
-              </div>
-              <p className="mt-3 text-xs text-muted-foreground">
-                Window: {fmtDateTime(heatmap.periodStart)} →{" "}
-                {fmtDateTime(heatmap.periodEnd)}
+              <p className="mt-4 text-xs text-muted-foreground">
+                Period: {fmtDateTime(heatmap.periodStart)} → {fmtDateTime(heatmap.periodEnd)}
               </p>
             </Card>
           ) : null}

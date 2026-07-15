@@ -527,52 +527,29 @@ function UtilizationHeatmap({ data }: { data: HeatmapReport }) {
 
   const maxHours = Math.max(...data.heatmap.map((h) => h.bookedHours), 1);
 
-  // Enhanced color gradient with better visual distinction
   const getColor = (hours: number, hovered = false) => {
     const intensity = maxHours > 0 ? hours / maxHours : 0;
-    
+
     if (hours === 0) {
       return {
         bg: "bg-slate-100 dark:bg-slate-800/50",
         text: "text-slate-400 dark:text-slate-500",
-        ring: "ring-slate-200 dark:ring-slate-700"
       };
     }
-    
-    // Gradient from cool blue to warm orange/red based on utilization
+
     if (intensity < 0.2) {
-      return {
-        bg: hovered ? "bg-emerald-200 dark:bg-emerald-900/50" : "bg-emerald-100 dark:bg-emerald-900/30",
-        text: "text-emerald-700 dark:text-emerald-300",
-        ring: "ring-emerald-400"
-      };
+      return { bg: "bg-emerald-100 dark:bg-emerald-900/30", text: "text-emerald-700 dark:text-emerald-300" };
     }
     if (intensity < 0.4) {
-      return {
-        bg: hovered ? "bg-teal-200 dark:bg-teal-900/50" : "bg-teal-100 dark:bg-teal-900/30",
-        text: "text-teal-700 dark:text-teal-300",
-        ring: "ring-teal-400"
-      };
+      return { bg: "bg-teal-100 dark:bg-teal-900/30", text: "text-teal-700 dark:text-teal-300" };
     }
     if (intensity < 0.6) {
-      return {
-        bg: hovered ? "bg-blue-200 dark:bg-blue-900/50" : "bg-blue-100 dark:bg-blue-900/30",
-        text: "text-blue-700 dark:text-blue-300",
-        ring: "ring-blue-400"
-      };
+      return { bg: "bg-blue-100 dark:bg-blue-900/30", text: "text-blue-700 dark:text-blue-300" };
     }
     if (intensity < 0.8) {
-      return {
-        bg: hovered ? "bg-amber-200 dark:bg-amber-900/50" : "bg-amber-100 dark:bg-amber-900/30",
-        text: "text-amber-700 dark:text-amber-300",
-        ring: "ring-amber-400"
-      };
+      return { bg: "bg-amber-100 dark:bg-amber-900/30", text: "text-amber-700 dark:text-amber-300" };
     }
-    return {
-      bg: hovered ? "bg-rose-200 dark:bg-rose-900/50" : "bg-rose-100 dark:bg-rose-900/30",
-      text: "text-rose-700 dark:text-rose-300",
-      ring: "ring-rose-400"
-    };
+    return { bg: "bg-rose-100 dark:bg-rose-900/30", text: "text-rose-700 dark:text-rose-300" };
   };
 
   const formatHour = (h: number) => {
@@ -583,7 +560,6 @@ function UtilizationHeatmap({ data }: { data: HeatmapReport }) {
 
   return (
     <Card className="rounded-2xl border-border/60 overflow-hidden shadow-soft">
-      {/* Header */}
       <div className="bg-gradient-to-r from-muted/50 to-muted/30 px-5 py-4 border-b border-border/40">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -597,18 +573,14 @@ function UtilizationHeatmap({ data }: { data: HeatmapReport }) {
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <Badge variant="outline" className="text-xs font-medium px-3 py-1.5 bg-background/50">
-              <Calendar className="size-3 mr-1.5" />
-              {format(parseISO(data.periodStart), "MMM d")} - {format(parseISO(data.periodEnd), "MMM d")}
-            </Badge>
-          </div>
+          <Badge variant="outline" className="text-xs font-medium px-3 py-1.5 bg-background/50">
+            <Calendar className="size-3 mr-1.5" />
+            {format(parseISO(data.periodStart), "MMM d")} - {format(parseISO(data.periodEnd), "MMM d")}
+          </Badge>
         </div>
       </div>
 
-      {/* Heatmap Grid */}
       <div className="p-5">
-        {/* Hour labels - simplified */}
         <div className="flex mb-3 ml-12">
           <div className="text-[10px] text-muted-foreground/60 font-medium grid grid-cols-24 gap-0.5 w-full">
             {hours.filter((_, i) => i % 3 === 0).map((hour) => (
@@ -617,23 +589,19 @@ function UtilizationHeatmap({ data }: { data: HeatmapReport }) {
           </div>
         </div>
 
-        {/* Day rows */}
         <div className="space-y-1.5">
           {days.map((day, dayIdx) => (
             <div key={day} className="flex items-center gap-2">
-              {/* Day label */}
               <div className="w-12 text-xs font-medium text-muted-foreground text-right pr-2">
                 {day}
               </div>
-              
-              {/* Hour cells */}
               <div className="flex gap-0.5 flex-1">
                 {hours.map((hour) => {
                   const key = `${dayIdx}-${hour}`;
                   const hoursBooked = heatmapData.get(key) || 0;
                   const color = getColor(hoursBooked, hoveredCell?.day === day && hoveredCell?.hour === hour);
                   const isHovered = hoveredCell?.day === day && hoveredCell?.hour === hour;
-                  
+
                   return (
                     <div
                       key={hour}
@@ -655,24 +623,21 @@ function UtilizationHeatmap({ data }: { data: HeatmapReport }) {
           ))}
         </div>
 
-        {/* Legend */}
         <div className="mt-6 pt-4 border-t border-border/40">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <span className="text-xs font-medium text-muted-foreground">Utilization:</span>
               <div className="flex items-center gap-1">
-                <div className="w-6 h-6 rounded-md bg-slate-100 dark:bg-slate-800/50 flex items-center justify-center text-[9px] font-semibold text-slate-400" title="No usage">0</div>
-                <div className="w-6 h-6 rounded-md bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center text-[9px] font-semibold text-emerald-700" title="Low">L</div>
-                <div className="w-6 h-6 rounded-md bg-teal-100 dark:bg-teal-900/30 flex items-center justify-center text-[9px] font-semibold text-teal-700" title="Light">L</div>
-                <div className="w-6 h-6 rounded-md bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-[9px] font-semibold text-blue-700" title="Medium">M</div>
-                <div className="w-6 h-6 rounded-md bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center text-[9px] font-semibold text-amber-700" title="High">H</div>
-                <div className="w-6 h-6 rounded-md bg-rose-100 dark:bg-rose-900/30 flex items-center justify-center text-[9px] font-semibold text-rose-700" title="Very High">V</div>
+                <div className="w-6 h-6 rounded-md bg-slate-100 dark:bg-slate-800/50 flex items-center justify-center text-[9px] font-semibold text-slate-400">0</div>
+                <div className="w-6 h-6 rounded-md bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center text-[9px] font-semibold text-emerald-700">L</div>
+                <div className="w-6 h-6 rounded-md bg-teal-100 dark:bg-teal-900/30 flex items-center justify-center text-[9px] font-semibold text-teal-700">L</div>
+                <div className="w-6 h-6 rounded-md bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-[9px] font-semibold text-blue-700">M</div>
+                <div className="w-6 h-6 rounded-md bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center text-[9px] font-semibold text-amber-700">H</div>
+                <div className="w-6 h-6 rounded-md bg-rose-100 dark:bg-rose-900/30 flex items-center justify-center text-[9px] font-semibold text-rose-700">V</div>
               </div>
             </div>
-            
-            {/* Hover tooltip preview */}
             {hoveredCell ? (
-              <div className="flex items-center gap-2 text-xs bg-muted/50 px-3 py-1.5 rounded-lg border border-border/40 animate-fade-in">
+              <div className="flex items-center gap-2 text-xs bg-muted/50 px-3 py-1.5 rounded-lg border border-border/40">
                 <Clock className="size-3.5 text-primary" />
                 <span className="font-medium">{hoveredCell.day} {formatHour(hoveredCell.hour)}:</span>
                 <Badge variant="outline" className="text-xs font-bold bg-primary/10 text-primary border-primary/20">
@@ -683,11 +648,9 @@ function UtilizationHeatmap({ data }: { data: HeatmapReport }) {
               <span className="text-xs text-muted-foreground/60">Hover over cells for details</span>
             )}
           </div>
-          
-          {/* Gradient bar */}
           <div className="mt-3 flex items-center gap-2">
             <span className="text-[10px] text-muted-foreground/60">No Usage</span>
-            <div className="flex-1 h-2 rounded-full bg-gradient-to-r from-slate-100 via-emerald-200 teal-200 blue-200 amber-200 to-rose-200 dark:from-slate-800/50 dark:via-emerald-900/30 dark:teal-900/30 dark:blue-900/30 dark:amber-900/30 dark:to-rose-900/30" />
+            <div className="flex-1 h-2 rounded-full bg-gradient-to-r from-slate-100 via-emerald-200 teal-200 blue-200 amber-200 to-rose-200 dark:from-slate-800/50 dark:via-emerald-900/30 dark:to-rose-900/30" />
             <span className="text-[10px] text-muted-foreground/60">Peak Usage</span>
           </div>
         </div>
@@ -695,8 +658,6 @@ function UtilizationHeatmap({ data }: { data: HeatmapReport }) {
     </Card>
   );
 }
-
-// ---------------------------------------------------------------------------
 // Idle Equipment Component
 // ---------------------------------------------------------------------------
 
