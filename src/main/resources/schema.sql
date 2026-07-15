@@ -58,11 +58,38 @@ BEGIN
     ) INTO column_exists;
     
     IF NOT column_exists THEN
-        -- Add the column if it doesn't exist
-        ALTER TABLE waitlists ADD COLUMN notified boolean NOT NULL DEFAULT false;
-    ELSE
-        -- Ensure notified column has proper default and is not null
-        ALTER TABLE waitlists ALTER COLUMN notified SET DEFAULT false;
-        ALTER TABLE waitlists ALTER COLUMN notified SET NOT NULL;
+        -- Add the column if it doesn't exist (nullable to avoid issues)
+        ALTER TABLE waitlists ADD COLUMN notified boolean DEFAULT false;
+    END IF;
+END $$;
+
+-- Fix equipments added_by column type if it's varchar instead of bigint
+DO $$
+DECLARE
+    column_type text;
+BEGIN
+    SELECT data_type INTO column_type
+    FROM information_schema.columns
+    WHERE table_name = 'equipments' AND column_name = 'added_by';
+    
+    -- If added_by is varchar, we need to handle it carefully
+    -- Drop the column and recreate as bigint if it's stored as varchar
+    IF column_type = 'character varying' OR column_type = 'varchar' THEN
+        -- Check if there are any foreign key constraints
+        -- First drop any existing constraints
+        BEGIN
+            ALTER TABLE equipments DROP CONSTRAINT IF EXISTS fk_equipments_added_by;
+        EXCEPTION WHEN OTHERS THEN
+            -- Ignore if constraint doesn't exist
+        END;
+        
+        -- Rename the column instead of dropping (to preserve data if it's numeric)
+        -- If the data is not numeric, this will fail and we'll need manual intervention
+        BEGIN
+            ALTER TABLE equipments ALTER COLUMN added_by TYPE bigint USING added_by::bigint;
+        EXCEPTION WHEN OTHERS THEN
+            -- If conversion fails, just set column to nullable bigint
+            ALTER TABLE equipments ALTER COLUMN added_by TYPE bigint;
+        END;
     END IF;
 END $$;

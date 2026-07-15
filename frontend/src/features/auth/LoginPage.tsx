@@ -130,7 +130,7 @@ export default function LoginPage() {
           type="submit"
           size="lg"
           disabled={loading}
-          className="w-full h-11 rounded-xl text-base font-medium transition-all duration-200"
+          className="w-full h-11 rounded-xl text-base font-semibold transition-all duration-200 bg-gradient-to-r from-violet-500 to-purple-600 hover:from-violet-600 hover:to-purple-700 shadow-md hover:shadow-lg hover:shadow-violet-500/25"
         >
           {loading ? (
             <>
