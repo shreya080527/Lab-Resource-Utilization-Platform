@@ -220,6 +220,7 @@ export interface WaitlistEntry {
   startTime: string;
   endTime: string;
   position: number;
+  notified: boolean;
   createdAt: string;
 }
 

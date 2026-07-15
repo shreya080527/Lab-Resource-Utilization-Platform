@@ -30,9 +30,15 @@ public class Waitlist {
     @Column(nullable = false)
     private Integer position;
 
+    @Column(name = "notified", nullable = false)
+    private Boolean notified = false;
+
     @Column(updatable = false)
     private LocalDateTime createdAt;
 
     @PrePersist
-    void onCreate() { this.createdAt = LocalDateTime.now(); }
+    void onCreate() { 
+        this.createdAt = LocalDateTime.now();
+        if (this.notified == null) this.notified = false;
+    }
 }

@@ -376,6 +376,32 @@ public class BookingService {
         return bookingRepo.findAll();
     }
 
+    /**
+     * Find all bookings for the current LAB_MANAGER's department.
+     * If the user has no department, returns all bookings (for SYSTEM_ADMIN).
+     */
+    @Transactional(readOnly = true)
+    public List<Booking> findAllForCurrentManagerDepartment() {
+        User currentUser = getCurrentUser();
+        if (currentUser == null) {
+            throw new RuntimeException("User not authenticated");
+        }
+        
+        // SYSTEM_ADMIN and INSTITUTION_ADMIN can see all bookings
+        if (currentUser.getRole() == Role.SYSTEM_ADMIN || 
+            currentUser.getRole() == Role.INSTITUTION_ADMIN) {
+            return bookingRepo.findAll();
+        }
+        
+        // LAB_MANAGER sees only their department's bookings
+        if (currentUser.getDepartment() != null) {
+            return bookingRepo.findByDepartmentId(currentUser.getDepartment().getId());
+        }
+        
+        // If no department, return empty list
+        return List.of();
+    }
+
     @Transactional(readOnly = true)
     public Booking findBooking(Long id) {
         return bookingRepo.findById(id)
