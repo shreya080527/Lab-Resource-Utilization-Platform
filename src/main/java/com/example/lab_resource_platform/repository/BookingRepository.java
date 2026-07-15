@@ -66,5 +66,9 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
 
     @Query("SELECT b FROM Booking b WHERE b.equipment.department.id = :departmentId AND b.status = :status ORDER BY b.startTime DESC")
     List<Booking> findByDepartmentIdAndStatus(@Param("departmentId") Long departmentId, @Param("status") BookingStatus status);
+
+    // Find bookings by user's department (for lab manager view)
+    @Query("SELECT b FROM Booking b WHERE b.user.department.id = :departmentId ORDER BY b.startTime DESC")
+    List<Booking> findByUserDepartmentId(@Param("departmentId") Long departmentId);
 }
 
