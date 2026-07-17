@@ -45,6 +45,7 @@ public class BookingService {
     private final UserRepo userRepo;
     private final BookingAuditRepo auditRepo;
     private final EmailService emailService;
+    private final NotificationService notificationService;
 
     private final List<BookingStatus> activeStatuses = List.of(BookingStatus.PENDING, BookingStatus.CONFIRMED);
     private final List<BookingStatus> utilizationStatuses = List.of(
@@ -96,6 +97,19 @@ public class BookingService {
         } catch (Exception e) {
         	throw new IllegalStateException("Failed to send notification email to the lab manager.");
         }
+        
+        // Create in-app notification for new booking request (to lab managers)
+        List<User> managers = userRepo.findByRoleAndDepartment(Role.LAB_MANAGER, user.getDepartment());
+        for (User manager : managers) {
+            notificationService.notifyNewBookingRequest(
+                manager.getId(),
+                user.getUsername(),
+                equipment.getEquipmentName(),
+                booking.getId(),
+                equipmentId
+            );
+        }
+        
         writeAudit(booking, "CREATED", null, "PENDING", getCurrentUser(), null);
         return booking;
     }
@@ -107,18 +121,30 @@ public class BookingService {
                 .orElseThrow(() -> new RuntimeException("Equipment not found"));
         User performer = getCurrentUser();
 
-        // Create parent booking
-        Booking parent = Booking.builder()
-                .user(user).equipment(equipment)
-                .startTime(req.getStartTime()).endTime(req.getEndTime())
-                .status(BookingStatus.PENDING)
-                .recurrencePattern(req.getRecurrencePattern())
-                .build();
-        parent = bookingRepo.save(parent);
-        writeAudit(parent, "CREATED", null, "PENDING", performer, "Recurring parent booking");
-
         List<Booking> children = new ArrayList<>();
         List<RecurringBookingResponse.WaitlistSlot> waitlisted = new ArrayList<>();
+
+        // Check first slot for conflict
+        boolean firstSlotHasConflict = bookingRepo.existsOverlappingActiveBookingsForUpdate(
+            req.getEquipmentId(), req.getStartTime(), req.getEndTime(), activeStatuses);
+
+        Booking parent = null;
+        
+        if (!firstSlotHasConflict) {
+            // Create parent booking only if first slot has no conflict
+            parent = Booking.builder()
+                    .user(user).equipment(equipment)
+                    .startTime(req.getStartTime()).endTime(req.getEndTime())
+                    .status(BookingStatus.PENDING)
+                    .recurrencePattern(req.getRecurrencePattern())
+                    .build();
+            parent = bookingRepo.save(parent);
+            writeAudit(parent, "CREATED", null, "PENDING", performer, "Recurring parent booking");
+        } else {
+            // First slot has conflict - add to waitlist
+            Waitlist w = addToWaitlist(user, equipment, req.getStartTime(), req.getEndTime());
+            waitlisted.add(new RecurringBookingResponse.WaitlistSlot(req.getStartTime(), req.getEndTime(), "Conflict — added to waitlist"));
+        }
 
         LocalDateTime nextStart = req.getStartTime();
         LocalDateTime nextEnd = req.getEndTime();
@@ -129,7 +155,7 @@ public class BookingService {
             if (bookingRepo.existsOverlappingActiveBookingsForUpdate(req.getEquipmentId(), nextStart, nextEnd, activeStatuses)) {
                 Waitlist w = addToWaitlist(user, equipment, nextStart, nextEnd);
                 waitlisted.add(new RecurringBookingResponse.WaitlistSlot(nextStart, nextEnd, "Conflict — added to waitlist"));
-            } else {
+            } else if (parent != null) {
                 Booking child = Booking.builder()
                         .user(user).equipment(equipment)
                         .startTime(nextStart).endTime(nextEnd)
@@ -142,8 +168,16 @@ public class BookingService {
                 children.add(child);
             }
         }
+        
         List<BookingResponse> bookingResponses = children.stream().map(BookingResponse::from).toList();
-        return new RecurringBookingResponse(parent.getId(), bookingResponses.size(), waitlisted.size(), bookingResponses, waitlisted);    }
+        return new RecurringBookingResponse(
+            parent != null ? parent.getId() : 0, 
+            bookingResponses.size(), 
+            waitlisted.size(), 
+            bookingResponses, 
+            waitlisted
+        );
+    }
 
     private LocalDateTime advanceByPattern(LocalDateTime dt, String pattern) {
         return switch (pattern.toUpperCase()) {
@@ -196,6 +230,15 @@ public class BookingService {
             }
         }
         
+        // Check for overlapping CONFIRMED bookings - prevent double booking
+        List<BookingStatus> confirmedStatuses = List.of(BookingStatus.CONFIRMED, BookingStatus.IN_PROGRESS);
+        boolean hasConflict = bookingRepo.existsOverlappingActiveBookingsForUpdate(
+            b.getEquipment().getId(), b.getStartTime(), b.getEndTime(), confirmedStatuses);
+        
+        if (hasConflict) {
+            throw new IllegalStateException("Cannot approve — this time slot conflicts with an existing confirmed booking. The request will be added to the waitlist instead.");
+        }
+        
         BookingStatus old = b.getStatus();
         b.setStatus(BookingStatus.CONFIRMED);
         b.setUpdatedBy(currentUser);
@@ -214,6 +257,13 @@ public class BookingService {
         	throw new IllegalStateException("Failed to dispatch acceptance notification mail.");
             
         }
+        
+        // Create in-app notification for booking approved
+        notificationService.notifyBookingApproved(
+            b.getUser().getId(),
+            b.getEquipment().getEquipmentName(),
+            b.getId()
+        );
         
         writeAudit(b, "ACCEPTED", old.name(), "CONFIRMED", currentUser, "Approved by manager");
         return b;
@@ -251,6 +301,14 @@ public class BookingService {
         } catch (Exception e) {
         	throw new IllegalStateException("Failed to dispatch rejection notification mail.");          
         }
+        
+        // Create in-app notification for booking rejected
+        notificationService.notifyBookingRejected(
+            b.getUser().getId(),
+            b.getEquipment().getEquipmentName(),
+            b.getId()
+        );
+        
         writeAudit(b, "REJECTED", old.name(), "REJECTED", currentUser, null);
         promoteNextEligibleWaitlist(b.getEquipment().getId());
         return b;
@@ -374,7 +432,19 @@ public class BookingService {
                 .startTime(start).endTime(end)
                 .position(nextPos)
                 .build();
-        return waitlistRepo.save(w);
+        w = waitlistRepo.save(w);
+        
+        // Create in-app notification for waitlist added
+        String title = "Added to Waitlist";
+        String message = "You've been added to the waitlist for " + equipment.getEquipmentName() + 
+                ". You are #" + nextPos + " in the queue.";
+        notificationService.createNotification(
+            user.getId(), title, message,
+            com.example.lab_resource_platform.entity.Notification.NotificationType.EQUIPMENT_AVAILABLE,
+            w.getId(), "WAITLIST", equipment.getId()
+        );
+        
+        return w;
     }
 
     @Transactional
@@ -412,6 +482,14 @@ public class BookingService {
                 entry.setNotified(true);
                 waitlistRepo.save(entry);
                 waitlistRepo.delete(entry);
+                
+                // Create in-app notification for waitlist promoted
+                notificationService.notifyWaitlistPromoted(
+                    entry.getUser().getId(),
+                    entry.getEquipment().getEquipmentName(),
+                    promoted.getId(),
+                    equipmentId
+                );
             }
         }
     }
