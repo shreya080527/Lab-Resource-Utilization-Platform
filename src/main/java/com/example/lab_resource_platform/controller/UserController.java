@@ -44,7 +44,7 @@ public class UserController {
         
         if (request.getUsername() != null && !request.getUsername().isEmpty()) {
             // Check if username is already taken by another user
-            User existing = userRepo.findByUsername(request.getUsername()).orElse(null);
+            User existing = userRepo.findByUsername(request.getUsername());
             if (existing != null && !existing.getId().equals(user.getId())) {
                 throw new IllegalStateException("Username is already taken");
             }
