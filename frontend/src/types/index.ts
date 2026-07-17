@@ -189,6 +189,9 @@ export interface Booking {
   parentBookingId: number | null;
   createdAt: string;
   updatedAt: string | null;
+  // Department info for frontend permission checks
+  equipmentDepartmentId?: number | null;
+  equipmentDepartmentName?: string | null;
 }
 
 export type RecurrencePattern = "DAILY" | "WEEKLY" | "MONTHLY";
@@ -222,6 +225,11 @@ export interface WaitlistEntry {
   position: number;
   notified: boolean;
   createdAt: string;
+  // Enhanced fields
+  waitingDurationMinutes?: number;
+  waitingDurationFormatted?: string;
+  equipmentDepartmentId?: number | null;
+  equipmentDepartmentName?: string | null;
 }
 
 export interface MyDashboard {
