@@ -1,6 +1,6 @@
 import * as React from "react";
 import { 
-  User, Mail, Phone, MapPin, Briefcase, Building2, Shield, 
+  User as UserIcon, Mail, Phone, MapPin, Briefcase, Building2, Shield, 
   Camera, Lock, Check, Loader2, AlertCircle 
 } from "lucide-react";
 import { toast } from "sonner";
@@ -175,7 +175,7 @@ export function ProfilePage() {
           <div className="space-y-2">
             <Label htmlFor="username">Username</Label>
             <div className="relative">
-              <User className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+              <UserIcon className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 id="username"
                 value={username}
@@ -188,7 +188,7 @@ export function ProfilePage() {
           <div className="space-y-2">
             <Label htmlFor="name">Full Name</Label>
             <div className="relative">
-              <User className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+              <UserIcon className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 id="name"
                 value={name}
