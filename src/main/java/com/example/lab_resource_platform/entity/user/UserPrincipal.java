@@ -59,4 +59,12 @@ public class UserPrincipal implements UserDetails {
     public boolean isEnabled() {
         return user.getEmailVerified();
     }
+
+    public Long getId() {
+        return user.getId();
+    }
+
+    public User getUser() {
+        return user;
+    }
 }
