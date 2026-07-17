@@ -45,6 +45,7 @@ public class BookingService {
     private final UserRepo userRepo;
     private final BookingAuditRepo auditRepo;
     private final EmailService emailService;
+    private final NotificationService notificationService;
 
     private final List<BookingStatus> activeStatuses = List.of(BookingStatus.PENDING, BookingStatus.CONFIRMED);
     private final List<BookingStatus> utilizationStatuses = List.of(
@@ -96,6 +97,19 @@ public class BookingService {
         } catch (Exception e) {
         	throw new IllegalStateException("Failed to send notification email to the lab manager.");
         }
+        
+        // Create in-app notification for new booking request (to lab managers)
+        List<User> managers = userRepo.findByRoleAndDepartment(Role.LAB_MANAGER, user.getDepartment());
+        for (User manager : managers) {
+            notificationService.notifyNewBookingRequest(
+                manager.getId(),
+                user.getUsername(),
+                equipment.getEquipmentName(),
+                booking.getId(),
+                equipmentId
+            );
+        }
+        
         writeAudit(booking, "CREATED", null, "PENDING", getCurrentUser(), null);
         return booking;
     }
@@ -215,6 +229,13 @@ public class BookingService {
             
         }
         
+        // Create in-app notification for booking approved
+        notificationService.notifyBookingApproved(
+            b.getUser().getId(),
+            b.getEquipment().getEquipmentName(),
+            b.getId()
+        );
+        
         writeAudit(b, "ACCEPTED", old.name(), "CONFIRMED", currentUser, "Approved by manager");
         return b;
     }
@@ -251,6 +272,14 @@ public class BookingService {
         } catch (Exception e) {
         	throw new IllegalStateException("Failed to dispatch rejection notification mail.");          
         }
+        
+        // Create in-app notification for booking rejected
+        notificationService.notifyBookingRejected(
+            b.getUser().getId(),
+            b.getEquipment().getEquipmentName(),
+            b.getId()
+        );
+        
         writeAudit(b, "REJECTED", old.name(), "REJECTED", currentUser, null);
         promoteNextEligibleWaitlist(b.getEquipment().getId());
         return b;
@@ -374,7 +403,19 @@ public class BookingService {
                 .startTime(start).endTime(end)
                 .position(nextPos)
                 .build();
-        return waitlistRepo.save(w);
+        w = waitlistRepo.save(w);
+        
+        // Create in-app notification for waitlist added
+        String title = "Added to Waitlist";
+        String message = "You've been added to the waitlist for " + equipment.getEquipmentName() + 
+                ". You are #" + nextPos + " in the queue.";
+        notificationService.createNotification(
+            user.getId(), title, message,
+            com.example.lab_resource_platform.entity.Notification.NotificationType.EQUIPMENT_AVAILABLE,
+            w.getId(), "WAITLIST", equipment.getId()
+        );
+        
+        return w;
     }
 
     @Transactional
@@ -412,6 +453,14 @@ public class BookingService {
                 entry.setNotified(true);
                 waitlistRepo.save(entry);
                 waitlistRepo.delete(entry);
+                
+                // Create in-app notification for waitlist promoted
+                notificationService.notifyWaitlistPromoted(
+                    entry.getUser().getId(),
+                    entry.getEquipment().getEquipmentName(),
+                    promoted.getId(),
+                    equipmentId
+                );
             }
         }
     }

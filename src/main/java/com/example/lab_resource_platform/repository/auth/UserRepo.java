@@ -35,5 +35,15 @@ public interface UserRepo extends JpaRepository<User,Long> {
     	List<String> findEmailsByRoleAndUserDepartment(
     	        @Param("role") Role role,
     	        @Param("userId") Long userId);
+    
+    @Query("""
+    	    SELECT u
+    	    FROM User u
+    	    WHERE u.role = :role
+    	      AND u.department = :department
+    	""")
+    	List<User> findByRoleAndDepartment(
+    	        @Param("role") Role role,
+    	        @Param("department") com.example.lab_resource_platform.entity.Department department);
 }
 
