@@ -42,6 +42,12 @@ export interface User {
   emailVerified: boolean;
   department: Department | null;
   institution: Institution | null;
+  // Profile fields
+  name?: string | null;
+  phoneNumber?: string | null;
+  address?: string | null;
+  designation?: string | null;
+  profilePictureUrl?: string | null;
 }
 
 export interface JwtPayload {
@@ -413,3 +419,29 @@ export type BookingAction =
   | "cancel"
   | "complete"
   | "noShow";
+
+
+// ─── Notification ───
+export type NotificationType =
+  | "BOOKING_APPROVED"
+  | "BOOKING_REJECTED"
+  | "BOOKING_CANCELLED"
+  | "BOOKING_REMINDER"
+  | "WAITLIST_PROMOTED"
+  | "EQUIPMENT_AVAILABLE"
+  | "NEW_BOOKING_REQUEST"
+  | "MAINTENANCE_DUE"
+  | "CALIBRATION_DUE"
+  | "SYSTEM_ANNOUNCEMENT";
+
+export interface AppNotification {
+  id: number;
+  title: string;
+  message: string;
+  type: NotificationType;
+  isRead: boolean;
+  referenceId?: number | null;
+  referenceType?: string | null;
+  relatedEquipmentId?: number | null;
+  createdAt: string;
+}
