@@ -236,7 +236,21 @@ public class BookingService {
             b.getEquipment().getId(), b.getStartTime(), b.getEndTime(), confirmedStatuses);
         
         if (hasConflict) {
-            throw new IllegalStateException("Cannot approve — this time slot conflicts with an existing confirmed booking. The request will be added to the waitlist instead.");
+            // Instead of throwing error, add to waitlist and cancel this booking
+            Long equipmentId = b.getEquipment().getId();
+            LocalDateTime start = b.getStartTime();
+            LocalDateTime end = b.getEndTime();
+            User user = b.getUser();
+            Equipment equipment = b.getEquipment();
+            
+            // Cancel this conflicting booking
+            bookingRepo.delete(b);
+            
+            // Add to waitlist
+            addToWaitlist(user, equipment, start, end);
+            
+            // Return null to indicate booking was moved to waitlist
+            return null;
         }
         
         BookingStatus old = b.getStatus();
@@ -436,8 +450,10 @@ public class BookingService {
         
         // Create in-app notification for waitlist added
         String title = "Added to Waitlist";
-        String message = "You've been added to the waitlist for " + equipment.getEquipmentName() + 
-                ". You are #" + nextPos + " in the queue.";
+        String message = "Your booking request for " + equipment.getEquipmentName() + 
+                " (Slot: " + start.toLocalDate().toString() + " " + start.toLocalTime() + " - " + end.toLocalTime() + 
+                ") conflicts with an existing booking. You've been added to the waitlist at position #" + nextPos + 
+                ". The lab manager will review your request when the slot becomes available.";
         notificationService.createNotification(
             user.getId(), title, message,
             com.example.lab_resource_platform.entity.Notification.NotificationType.EQUIPMENT_AVAILABLE,

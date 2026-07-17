@@ -68,8 +68,16 @@ public class BookingController {
 
     @PutMapping("/{id}/accept")
     @PreAuthorize("hasRole('LAB_MANAGER')")
-    public ResponseEntity<BookingResponse> accept(@PathVariable Long id) {
-        return ResponseEntity.ok(BookingResponse.from(bookingService.accept(id)));
+    public ResponseEntity<?> accept(@PathVariable Long id) {
+        var booking = bookingService.accept(id);
+        if (booking == null) {
+            // Booking was conflicting - moved to waitlist
+            return ResponseEntity.ok(java.util.Map.of(
+                "message", "This booking conflicts with an existing confirmed booking and has been moved to the waitlist.",
+                "movedToWaitlist", true
+            ));
+        }
+        return ResponseEntity.ok(BookingResponse.from(booking));
     }
 
     @PutMapping("/{id}/reject")
