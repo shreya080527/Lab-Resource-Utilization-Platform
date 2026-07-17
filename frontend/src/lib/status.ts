@@ -128,6 +128,26 @@ function toTitle(s: string): string {
 // Booking lifecycle — single source of truth
 // ---------------------------------------------------------------------------
 
+/**
+ * Check if a Lab Manager can manage bookings for a specific equipment.
+ * Lab Managers can only manage bookings for equipment in their department.
+ */
+function canManageEquipmentForUser(booking: Booking, currentUser: User): boolean {
+  // System Admin and Institution Admin can manage all bookings
+  if (currentUser.role === "SYSTEM_ADMIN" || currentUser.role === "INSTITUTION_ADMIN") {
+    return true;
+  }
+  
+  // Lab Manager: can only manage bookings for equipment in their department
+  if (currentUser.role === "LAB_MANAGER") {
+    if (!currentUser.department) return false;
+    if (booking.equipmentDepartmentId === undefined || booking.equipmentDepartmentId === null) return false;
+    return currentUser.department.id === booking.equipmentDepartmentId;
+  }
+  
+  return false;
+}
+
 export function getAvailableActions(
   booking: Booking,
   currentUser: User | null,
@@ -136,27 +156,41 @@ export function getAvailableActions(
   const status = booking.status as BookingStatus;
   const isOwner = booking.userId === currentUser.id;
   const isManager = currentUser.role === "LAB_MANAGER";
+  const isSystemOrInstitutionAdmin = currentUser.role === "SYSTEM_ADMIN" || currentUser.role === "INSTITUTION_ADMIN";
   const isResearcher = currentUser.role === "RESEARCHER";
+  const canManageThisBooking = canManageEquipmentForUser(booking, currentUser);
   const actions: BookingAction[] = [];
 
   switch (status) {
     case "PENDING":
-      if (isManager) {
+      // Lab Managers can accept/reject if equipment is in their department
+      if (isManager && canManageThisBooking) {
         actions.push("accept", "reject");
+      }
+      // Lab Managers can cancel any booking in their department
+      if (isManager && canManageThisBooking) {
         actions.push("cancel");
+      }
+      // System/Institution Admins can manage all bookings
+      if (isSystemOrInstitutionAdmin) {
+        actions.push("accept", "reject", "cancel");
       }
       if (isOwner && isResearcher) actions.push("cancel");
       break;
     case "CONFIRMED":
-      if (isManager) {
+      if (isManager && canManageThisBooking) {
         actions.push("noShow");
         actions.push("cancel");
+      }
+      if (isSystemOrInstitutionAdmin) {
+        actions.push("noShow", "cancel");
       }
       if (isOwner && isResearcher) actions.push("start", "cancel");
       break;
     case "IN_PROGRESS":
       if (isOwner && isResearcher) actions.push("complete");
-      if (isManager) actions.push("complete");
+      if (isManager && canManageThisBooking) actions.push("complete");
+      if (isSystemOrInstitutionAdmin) actions.push("complete");
       break;
     case "NO_SHOW":
     case "COMPLETED":

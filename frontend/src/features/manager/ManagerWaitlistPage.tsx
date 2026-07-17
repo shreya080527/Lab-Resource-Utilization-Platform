@@ -92,9 +92,16 @@ function WaitlistCardRow({
             <Microscope className="size-4" />
           </div>
           <div className="min-w-0">
-            <p className="truncate text-sm font-semibold text-foreground">
-              {entry.equipmentName}
-            </p>
+            <div className="flex items-center gap-2">
+              <p className="truncate text-sm font-semibold text-foreground">
+                {entry.equipmentName}
+              </p>
+              {entry.equipmentDepartmentName && (
+                <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 bg-amber-500/10 text-amber-600 border-amber-500/30">
+                  {entry.equipmentDepartmentName}
+                </Badge>
+              )}
+            </div>
             <p className="mt-0.5 flex items-center gap-1.5 truncate text-xs text-muted-foreground">
               <User className="size-3" />
               {entry.username}
@@ -122,7 +129,7 @@ function WaitlistCardRow({
         </div>
         <div className="flex items-center gap-1.5">
           <Clock className="size-3" />
-          Created {fmtDate(entry.createdAt)}
+          Waiting: {entry.waitingDurationFormatted || "..."}
         </div>
       </div>
 
@@ -383,9 +390,8 @@ export default function ManagerWaitlistPage() {
                     <TableHead className="pl-4">Position</TableHead>
                     <TableHead>Equipment</TableHead>
                     <TableHead>User</TableHead>
-                    <TableHead>Start</TableHead>
-                    <TableHead>End</TableHead>
-                    <TableHead>Created</TableHead>
+                    <TableHead>Requested Slot</TableHead>
+                    <TableHead>Waiting</TableHead>
                     <TableHead className="pr-4 text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -412,9 +418,16 @@ export default function ManagerWaitlistPage() {
                               <Microscope className="size-4" />
                             </span>
                             <span className="min-w-0">
-                              <span className="block truncate text-sm font-medium text-foreground">
-                                {entry.equipmentName}
-                              </span>
+                              <div className="flex items-center gap-2">
+                                <span className="block truncate text-sm font-medium text-foreground">
+                                  {entry.equipmentName}
+                                </span>
+                                {entry.equipmentDepartmentName && (
+                                  <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 bg-amber-500/10 text-amber-600 border-amber-500/30">
+                                    {entry.equipmentDepartmentName}
+                                  </Badge>
+                                )}
+                              </div>
                               <span className="block truncate text-xs text-muted-foreground">
                                 ID #{entry.equipmentId}
                               </span>
@@ -430,28 +443,29 @@ export default function ManagerWaitlistPage() {
                           </div>
                         </TableCell>
                         <TableCell>
-                          <div className="flex items-center gap-1.5 text-sm text-foreground">
-                            <CalendarRange className="size-3.5 text-muted-foreground" />
-                            {fmtDate(entry.startTime)}
-                          </div>
-                          <div className="mt-0.5 flex items-center gap-1.5 text-xs text-muted-foreground">
-                            <Clock className="size-3" />
-                            {fmtDate(entry.startTime, true).split("· ")[1] ?? ""}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-1.5 text-sm text-foreground">
-                            <CalendarRange className="size-3.5 text-muted-foreground" />
-                            {fmtDate(entry.endTime)}
-                          </div>
-                          <div className="mt-0.5 flex items-center gap-1.5 text-xs text-muted-foreground">
-                            <Clock className="size-3" />
-                            {fmtDate(entry.endTime, true).split("· ")[1] ?? ""}
+                          <div className="flex flex-col gap-0.5 text-xs">
+                            <div className="flex items-center gap-1.5">
+                              <CalendarRange className="size-3 text-muted-foreground" />
+                              <span className="text-foreground">
+                                {fmtDate(entry.startTime)}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                              <Clock className="size-3 text-muted-foreground" />
+                              <span className="text-muted-foreground">
+                                {fmtDate(entry.startTime, true).split("· ")[1] ?? ""} - {fmtDate(entry.endTime, true).split("· ")[1] ?? ""}
+                              </span>
+                            </div>
                           </div>
                         </TableCell>
                         <TableCell>
-                          <div className="text-sm text-foreground">
-                            {fmtDate(entry.createdAt)}
+                          <div className="flex flex-col gap-0.5 text-xs">
+                            <span className="font-medium text-foreground">
+                              {entry.waitingDurationFormatted || "..."}
+                            </span>
+                            <span className="text-muted-foreground text-[10px]">
+                              Since {fmtDate(entry.createdAt)}
+                            </span>
                           </div>
                         </TableCell>
                         <TableCell className="pr-4">

@@ -35,6 +35,7 @@ import CalibrationsDuePage from "@/features/manager/CalibrationsDuePage";
 import BookingAuditPage from "@/features/manager/BookingAuditPage";
 import AdminInstitutionsPage from "@/features/admin/AdminInstitutionsPage";
 import BrowsePlaceholder from "@/features/browse/BrowsePlaceholder";
+import { ProfilePage } from "@/features/profile/ProfilePage";
 
 // ---------------------------------------------------------------------------
 // AppRoot — wires the React Router v6 route table, the global 401 handler,
@@ -191,6 +192,10 @@ export function AppRoot() {
         <Route
           path="/equipment/:id"
           element={withShell(<EquipmentDetailPage />)}
+        />
+        <Route
+          path="/profile"
+          element={withShell(<ProfilePage />)}
         />
 
         {/* Researcher */}

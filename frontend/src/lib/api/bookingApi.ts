@@ -68,6 +68,7 @@ export const bookingApi = {
   cancel: (id: number) => api.put<Booking>(`/api/bookings/${id}/cancel`).then(unwrap),
   complete: (id: number) => api.put<Booking>(`/api/bookings/${id}/complete`).then(unwrap),
   noShow: (id: number) => api.put<Booking>(`/api/bookings/${id}/no-show`).then(unwrap),
+  canManage: (id: number) => api.get<{ canManage: boolean }>(`/api/bookings/${id}/can-manage`).then(unwrap),
 
   // ─── Audit ───
   bookingAudit: (bookingId: number) =>

@@ -1,4 +1,5 @@
 
+	
 import * as React from "react";
 import {
   LayoutDashboard,
@@ -14,6 +15,7 @@ import {
   ClipboardCheck,
   History,
   Building2,
+  User,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -35,6 +37,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { ThemeToggle } from "@/components/shared/ThemeToggle";
+import { NotificationBell } from "@/components/shared/NotificationBell";
 import { useRouter } from "@/store/router";
 import { useAuthStore } from "@/store/authStore";
 import { useAsync } from "@/hooks/use-async";
@@ -52,11 +55,13 @@ interface NavItem {
 }
 
 function navFor(role: Role): NavItem[] {
+  const profileLink = { label: "Profile", to: "/profile", icon: User, match: ["/profile"] };
   switch (role) {
     case "RESEARCHER":
       return [
         { label: "Dashboard", to: "/dashboard", icon: LayoutDashboard, match: ["/dashboard"] },
         { label: "Equipment", to: "/equipment", icon: Microscope, match: ["/equipment"] },
+        profileLink,
       ];
     case "LAB_MANAGER":
       return [
@@ -71,6 +76,7 @@ function navFor(role: Role): NavItem[] {
         // (sourced from dashboardApi.stats().calibrationsDueIn30Days) — defaults to 0.
         { label: "Calibrations Due", to: "/manager/calibrations", icon: ClipboardCheck, match: ["/manager/calibrations"], badge: 0 },
         { label: "Audit Trail", to: "/manager/audit", icon: History, match: ["/manager/audit"] },
+        profileLink,
       ];
     case "SYSTEM_ADMIN":
     case "INSTITUTION_ADMIN":
@@ -80,17 +86,20 @@ function navFor(role: Role): NavItem[] {
         { label: "Browse", to: "/browse", icon: Search, match: ["/browse"] },
         { label: "Equipment", to: "/equipment", icon: Microscope, match: ["/equipment"] },
         { label: "Utilization Dashboard", to: "/manager/utilization-dashboard", icon: BarChart3, match: ["/manager/utilization-dashboard"] },
+        profileLink,
       ];
     case "DEPARTMENT_HEAD":
       return [
         { label: "Browse", to: "/browse", icon: Search, match: ["/browse"] },
         { label: "Equipment", to: "/equipment", icon: Microscope, match: ["/equipment"] },
         { label: "Utilization Dashboard", to: "/manager/utilization-dashboard", icon: BarChart3, match: ["/manager/utilization-dashboard"] },
+        profileLink,
       ];
     default:
       return [
         { label: "Browse", to: "/browse", icon: Search, match: ["/browse"] },
         { label: "Equipment", to: "/equipment", icon: Microscope, match: ["/equipment"] },
+        profileLink,
       ];
   }
 }
@@ -253,6 +262,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <span className="text-[15px] font-semibold tracking-tight">LabFlow</span>
         </div>
         <div className="flex items-center gap-1">
+          <NotificationBell />
           <ThemeToggle />
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -290,6 +300,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       {/* Desktop top bar */}
       <header className="sticky top-0 z-20 hidden h-14 items-center justify-end gap-2 border-b border-border/60 glass lg:flex lg:pl-64 pr-4">
         <ThemeToggle />
+        <NotificationBell />
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" className="h-9 gap-2 rounded-lg px-2">

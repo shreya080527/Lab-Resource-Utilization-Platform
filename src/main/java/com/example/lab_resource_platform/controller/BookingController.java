@@ -128,4 +128,10 @@ public class BookingController {
     public ResponseEntity<ResearcherDashboardDto> myDashboard(@PathVariable Long userId) {
         return ResponseEntity.ok(bookingService.getResearcherDashboard(userId));
     }
+
+    @GetMapping("/{id}/can-manage")
+    @PreAuthorize("hasAnyRole('LAB_MANAGER','SYSTEM_ADMIN','INSTITUTION_ADMIN')")
+    public ResponseEntity<Map<String, Boolean>> canManage(@PathVariable Long id) {
+        return ResponseEntity.ok(Map.of("canManage", bookingService.canCurrentUserManageBooking(id)));
+    }
 }

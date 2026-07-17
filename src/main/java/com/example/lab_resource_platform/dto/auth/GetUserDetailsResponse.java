@@ -19,6 +19,13 @@ public class GetUserDetailsResponse {
     private Boolean emailVerified;
     private DepartmentInfo department;
     private InstitutionInfo institution;
+    
+    // Profile fields
+    private String name;
+    private String phoneNumber;
+    private String address;
+    private String designation;
+    private String profilePictureUrl;
 
     // Nested DTOs so we don't leak lazy-loaded JPA entities
     @Data
@@ -64,6 +71,11 @@ public class GetUserDetailsResponse {
                 .emailVerified(user.getEmailVerified())
                 .department(deptInfo)
                 .institution(instInfo)
+                .name(user.getName())
+                .phoneNumber(user.getPhoneNumber())
+                .address(user.getAddress())
+                .designation(user.getDesignation())
+                .profilePictureUrl(user.getProfilePictureUrl())
                 .build();
     }
 }

@@ -164,29 +164,46 @@ function PendingRow({
   busy,
   onAccept,
   onReject,
+  canManage,
 }: {
   booking: Booking;
   busy: "accept" | "reject" | null;
   onAccept: () => void;
   onReject: () => void;
+  canManage: boolean;
 }) {
   const start = parseISO(booking.startTime);
   const end = parseISO(booking.endTime);
   const sameDay = format(start, "yyyy-MM-dd") === format(end, "yyyy-MM-dd");
 
   return (
-    <li className="flex flex-col gap-3 rounded-xl border border-violet-200/40 bg-gradient-to-r from-violet-50/50 to-purple-50/50 dark:from-violet-950/20 dark:to-purple-950/20 px-4 py-3 sm:flex-row sm:items-center sm:justify-between transition-all duration-200 hover:shadow-md hover:border-violet-300">
+    <li className={cn(
+      "flex flex-col gap-3 rounded-xl border px-4 py-3 sm:flex-row sm:items-center sm:justify-between transition-all duration-200 hover:shadow-md",
+      canManage 
+        ? "border-violet-200/40 bg-gradient-to-r from-violet-50/50 to-purple-50/50 dark:from-violet-950/20 dark:to-purple-950/20 hover:border-violet-300"
+        : "border-muted/40 bg-muted/20 hover:border-muted/60"
+    )}>
       <div className="flex min-w-0 items-start gap-3">
-        <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 text-white shadow-md">
+        <div className={cn(
+          "flex size-10 shrink-0 items-center justify-center rounded-xl shadow-md",
+          canManage ? "bg-gradient-to-br from-violet-500 to-purple-600 text-white" : "bg-muted text-muted-foreground"
+        )}>
           <Microscope className="size-5" />
         </div>
         <div className="min-w-0">
-          <p className="truncate text-sm font-bold text-foreground">
-            {booking.equipmentName}
-          </p>
+          <div className="flex items-center gap-2">
+            <p className="truncate text-sm font-bold text-foreground">
+              {booking.equipmentName}
+            </p>
+            {!canManage && booking.equipmentDepartmentName && (
+              <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 bg-amber-500/10 text-amber-600 border-amber-500/30">
+                {booking.equipmentDepartmentName}
+              </Badge>
+            )}
+          </div>
           <p className="mt-0.5 truncate text-xs text-muted-foreground">
             Requested by{" "}
-            <span className="font-semibold text-violet-600 dark:text-violet-400">
+            <span className={cn("font-semibold", canManage ? "text-violet-600 dark:text-violet-400" : "")}>
               {booking.username}
             </span>
           </p>
@@ -198,36 +215,49 @@ function PendingRow({
               {format(end, sameDay ? "HH:mm" : "EEE, dd MMM yyyy, HH:mm")}
             </span>
           </p>
+          {!canManage && (
+            <p className="mt-1 text-[10px] text-amber-600 dark:text-amber-400 font-medium">
+              Different department — view only
+            </p>
+          )}
         </div>
       </div>
       <div className="flex shrink-0 items-center gap-2 pl-12 sm:pl-0">
-        <Button
-          size="sm"
-          className="gap-1.5 rounded-lg bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white shadow-md transition-all"
-          onClick={onAccept}
-          disabled={busy !== null}
-        >
-          {busy === "accept" ? (
-            <RefreshCw className="size-3.5 animate-spin" />
-          ) : (
-            <Check className="size-3.5" />
-          )}
-          Accept
-        </Button>
-        <Button
-          size="sm"
-          variant="outline"
-          className="gap-1.5 rounded-lg border-rose-200 text-rose-600 hover:bg-rose-50 dark:border-rose-800 dark:text-rose-400 dark:hover:bg-rose-950/30 transition-all"
-          onClick={onReject}
-          disabled={busy !== null}
-        >
-          {busy === "reject" ? (
-            <RefreshCw className="size-3.5 animate-spin" />
-          ) : (
-            <X className="size-3.5" />
-          )}
-          Reject
-        </Button>
+        {canManage ? (
+          <>
+            <Button
+              size="sm"
+              className="gap-1.5 rounded-lg bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white shadow-md transition-all"
+              onClick={onAccept}
+              disabled={busy !== null}
+            >
+              {busy === "accept" ? (
+                <RefreshCw className="size-3.5 animate-spin" />
+              ) : (
+                <Check className="size-3.5" />
+              )}
+              Accept
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              className="gap-1.5 rounded-lg border-rose-200 text-rose-600 hover:bg-rose-50 dark:border-rose-800 dark:text-rose-400 dark:hover:bg-rose-950/30 transition-all"
+              onClick={onReject}
+              disabled={busy !== null}
+            >
+              {busy === "reject" ? (
+                <RefreshCw className="size-3.5 animate-spin" />
+              ) : (
+                <X className="size-3.5" />
+              )}
+              Reject
+            </Button>
+          </>
+        ) : (
+          <Badge variant="outline" className="text-xs">
+            View Only
+          </Badge>
+        )}
       </div>
     </li>
   );
@@ -669,6 +699,11 @@ export default function ManagerDashboard() {
                   }
                   onAccept={() => handleAccept(b)}
                   onReject={() => handleReject(b)}
+                  canManage={user ? (
+                    user.role === "LAB_MANAGER" 
+                      ? user.department?.id === b.equipmentDepartmentId 
+                      : user.role === "SYSTEM_ADMIN" || user.role === "INSTITUTION_ADMIN"
+                  ) : false}
                 />
               ))}
             </ul>
