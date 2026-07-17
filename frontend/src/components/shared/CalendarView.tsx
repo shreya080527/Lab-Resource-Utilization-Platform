@@ -402,104 +402,6 @@ export function CalendarView({
                 })}
                 {/* Current time indicator */}
                 {isToday(d) && <CurrentTimeIndicator hourStart={HOUR_START} hourHeight={HOUR_HEIGHT} />}
-                  const cfg = bookingStatusConfig(ev.status);
-                  const isHovered = hoveredEvent === ev.id;
-                  
-                  return (
-                    <Tooltip key={ev.id}>
-                      <TooltipTrigger asChild>
-                        <button
-                          onClick={() => onSelect?.(ev)}
-                          onMouseEnter={() => setHoveredEvent(ev.id)}
-                          onMouseLeave={() => setHoveredEvent(null)}
-                          className={cn(
-                            "absolute left-1 right-1 overflow-hidden rounded-xl px-2.5 py-1.5 text-left text-[11px] leading-tight transition-all duration-200 cursor-pointer",
-                            "hover:z-20 hover:shadow-xl hover:scale-[1.02]",
-                            isHovered && "z-20 shadow-xl scale-[1.03]"
-                          )}
-                          style={{
-                            top: block.top,
-                            height: Math.max(block.height, 24),
-                            background: `linear-gradient(135deg, ${cfg.color}15 0%, ${cfg.color}08 100%)`,
-                            borderLeft: `4px solid ${cfg.color}`,
-                            color: "var(--foreground)",
-                            boxShadow: isHovered ? `0 4px 12px ${cfg.color}30` : `0 1px 3px ${cfg.color}10`,
-                          }}
-                        >
-                          <div className="truncate font-bold text-[11px]" style={{ color: cfg.color }}>
-                            {ev.title}
-                          </div>
-                          <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
-                            <Clock className="size-2.5" />
-                            <span className="tabular-nums">
-                              {format(parseISO(ev.start), "HH:mm")}–{format(parseISO(ev.end), "HH:mm")}
-                            </span>
-                          </div>
-                          {block.height > 40 && ev.subtitle && (
-                            <div className="mt-0.5 flex items-center gap-1 text-[10px] text-muted-foreground/80">
-                              <User className="size-2.5" />
-                              <span className="truncate">{ev.subtitle}</span>
-                            </div>
-                          )}
-                          {block.height > 60 && (
-                            <div 
-                              className="mt-1 inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[9px] font-semibold"
-                              style={{ 
-                                backgroundColor: `${cfg.color}20`,
-                                color: cfg.color 
-                              }}
-                            >
-                              {cfg.label}
-                            </div>
-                          )}
-                        </button>
-                      </TooltipTrigger>
-                      <TooltipContent side="top" className="z-50 w-64 p-0 overflow-hidden">
-                        <div className="bg-gradient-to-br from-card to-card/95">
-                          <div 
-                            className="px-3 py-2 border-b"
-                            style={{ borderColor: cfg.color + "30", backgroundColor: cfg.color + "10" }}
-                          >
-                            <div className="font-semibold text-sm" style={{ color: cfg.color }}>
-                              {ev.title}
-                            </div>
-                          </div>
-                          <div className="p-3 space-y-2">
-                            <div className="flex items-center gap-2 text-xs">
-                              <Clock className="size-3.5 text-muted-foreground" />
-                              <span className="font-medium">
-                                {format(parseISO(ev.start), "MMM d, yyyy HH:mm")}
-                              </span>
-                            </div>
-                            <div className="flex items-center gap-2 text-xs">
-                              <span className="text-muted-foreground">Duration:</span>
-                              <span className="font-medium">
-                                {formatDuration(ev.start, ev.end)}
-                              </span>
-                            </div>
-                            {ev.subtitle && (
-                              <div className="flex items-center gap-2 text-xs">
-                                <User className="size-3.5 text-muted-foreground" />
-                                <span className="font-medium">{ev.subtitle}</span>
-                              </div>
-                            )}
-                            <div className="pt-1">
-                              <span 
-                                className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold"
-                                style={{ 
-                                  backgroundColor: `${cfg.color}20`,
-                                  color: cfg.color 
-                                }}
-                              >
-                                {cfg.label}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                      </TooltipContent>
-                    </Tooltip>
-                  );
-                })}
               </div>
             );
           })}
@@ -514,6 +416,40 @@ export function CalendarView({
         )}
       </div>
     </TooltipProvider>
+  );
+}
+
+function CurrentTimeIndicator({ hourStart, hourHeight }: { hourStart: number; hourHeight: number }) {
+  const [position, setPosition] = React.useState({ top: 0, visible: false });
+  
+  React.useEffect(() => {
+    const updatePosition = () => {
+      const now = new Date();
+      const currentHour = now.getHours();
+      const currentMinute = now.getMinutes();
+      
+      if (currentHour >= hourStart && currentHour <= hourStart + 14) {
+        const hoursFromStart = currentHour - hourStart + (currentMinute / 60);
+        setPosition({ top: hoursFromStart * hourHeight, visible: true });
+      } else {
+        setPosition(prev => ({ ...prev, visible: false }));
+      }
+    };
+    
+    updatePosition();
+    const interval = setInterval(updatePosition, 60000);
+    return () => clearInterval(interval);
+  }, [hourStart, hourHeight]);
+  
+  if (!position.visible) return null;
+  
+  return (
+    <div className="absolute left-0 right-0 z-20 pointer-events-none" style={{ top: position.top }}>
+      <div className="flex items-center gap-1">
+        <div className="size-2 rounded-full bg-rose-500 shadow-sm" />
+        <div className="h-0.5 flex-1 bg-rose-500 shadow-sm" />
+      </div>
+    </div>
   );
 }
 
