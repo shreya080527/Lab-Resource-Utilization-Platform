@@ -236,15 +236,18 @@ public class BookingService {
             b.getEquipment().getId(), b.getStartTime(), b.getEndTime(), confirmedStatuses);
         
         if (hasConflict) {
-            // Instead of throwing error, add to waitlist and cancel this booking
+            // Instead of throwing error, add to waitlist and reject this booking
             Long equipmentId = b.getEquipment().getId();
             LocalDateTime start = b.getStartTime();
             LocalDateTime end = b.getEndTime();
             User user = b.getUser();
             Equipment equipment = b.getEquipment();
             
-            // Cancel this conflicting booking
-            bookingRepo.delete(b);
+            // Mark this conflicting booking as REJECTED (keep audit history)
+            b.setStatus(BookingStatus.REJECTED);
+            b.setUpdatedBy(currentUser);
+            bookingRepo.save(b);
+            writeAudit(b, "REJECTED", "PENDING", "REJECTED", currentUser, "Auto-rejected due to conflict with existing booking");
             
             // Add to waitlist
             addToWaitlist(user, equipment, start, end);
