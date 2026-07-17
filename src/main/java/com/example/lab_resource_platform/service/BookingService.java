@@ -121,18 +121,30 @@ public class BookingService {
                 .orElseThrow(() -> new RuntimeException("Equipment not found"));
         User performer = getCurrentUser();
 
-        // Create parent booking
-        Booking parent = Booking.builder()
-                .user(user).equipment(equipment)
-                .startTime(req.getStartTime()).endTime(req.getEndTime())
-                .status(BookingStatus.PENDING)
-                .recurrencePattern(req.getRecurrencePattern())
-                .build();
-        parent = bookingRepo.save(parent);
-        writeAudit(parent, "CREATED", null, "PENDING", performer, "Recurring parent booking");
-
         List<Booking> children = new ArrayList<>();
         List<RecurringBookingResponse.WaitlistSlot> waitlisted = new ArrayList<>();
+
+        // Check first slot for conflict
+        boolean firstSlotHasConflict = bookingRepo.existsOverlappingActiveBookingsForUpdate(
+            req.getEquipmentId(), req.getStartTime(), req.getEndTime(), activeStatuses);
+
+        Booking parent = null;
+        
+        if (!firstSlotHasConflict) {
+            // Create parent booking only if first slot has no conflict
+            parent = Booking.builder()
+                    .user(user).equipment(equipment)
+                    .startTime(req.getStartTime()).endTime(req.getEndTime())
+                    .status(BookingStatus.PENDING)
+                    .recurrencePattern(req.getRecurrencePattern())
+                    .build();
+            parent = bookingRepo.save(parent);
+            writeAudit(parent, "CREATED", null, "PENDING", performer, "Recurring parent booking");
+        } else {
+            // First slot has conflict - add to waitlist
+            Waitlist w = addToWaitlist(user, equipment, req.getStartTime(), req.getEndTime());
+            waitlisted.add(new RecurringBookingResponse.WaitlistSlot(req.getStartTime(), req.getEndTime(), "Conflict — added to waitlist"));
+        }
 
         LocalDateTime nextStart = req.getStartTime();
         LocalDateTime nextEnd = req.getEndTime();
@@ -143,7 +155,7 @@ public class BookingService {
             if (bookingRepo.existsOverlappingActiveBookingsForUpdate(req.getEquipmentId(), nextStart, nextEnd, activeStatuses)) {
                 Waitlist w = addToWaitlist(user, equipment, nextStart, nextEnd);
                 waitlisted.add(new RecurringBookingResponse.WaitlistSlot(nextStart, nextEnd, "Conflict — added to waitlist"));
-            } else {
+            } else if (parent != null) {
                 Booking child = Booking.builder()
                         .user(user).equipment(equipment)
                         .startTime(nextStart).endTime(nextEnd)
@@ -156,8 +168,16 @@ public class BookingService {
                 children.add(child);
             }
         }
+        
         List<BookingResponse> bookingResponses = children.stream().map(BookingResponse::from).toList();
-        return new RecurringBookingResponse(parent.getId(), bookingResponses.size(), waitlisted.size(), bookingResponses, waitlisted);    }
+        return new RecurringBookingResponse(
+            parent != null ? parent.getId() : 0, 
+            bookingResponses.size(), 
+            waitlisted.size(), 
+            bookingResponses, 
+            waitlisted
+        );
+    }
 
     private LocalDateTime advanceByPattern(LocalDateTime dt, String pattern) {
         return switch (pattern.toUpperCase()) {
@@ -208,6 +228,15 @@ public class BookingService {
             if (!canManageBooking(b, currentUser)) {
                 throw new IllegalStateException("You can only approve bookings for equipment in your department.");
             }
+        }
+        
+        // Check for overlapping CONFIRMED bookings - prevent double booking
+        List<BookingStatus> confirmedStatuses = List.of(BookingStatus.CONFIRMED, BookingStatus.IN_PROGRESS);
+        boolean hasConflict = bookingRepo.existsOverlappingActiveBookingsForUpdate(
+            b.getEquipment().getId(), b.getStartTime(), b.getEndTime(), confirmedStatuses);
+        
+        if (hasConflict) {
+            throw new IllegalStateException("Cannot approve — this time slot conflicts with an existing confirmed booking. The request will be added to the waitlist instead.");
         }
         
         BookingStatus old = b.getStatus();
