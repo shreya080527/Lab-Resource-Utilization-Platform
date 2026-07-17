@@ -1,5 +1,3 @@
-
-	
 import * as React from "react";
 import {
   startOfWeek,
@@ -66,7 +64,7 @@ export function CalendarView({
     },
     [controlledCursor, onCursorChange],
   );
-  
+
   const visibleRange = React.useMemo(() => {
     if (viewMode === "day") {
       const dayStart = startOfDay(cursor);
@@ -77,7 +75,7 @@ export function CalendarView({
       return { start: weekStart, end: weekEnd, days: eachDayOfInterval({ start: weekStart, end: weekEnd }) };
     }
   }, [cursor, viewMode]);
-  
+
   const days = visibleRange.days;
   const hours = Array.from({ length: HOUR_END - HOUR_START + 1 }, (_, i) => HOUR_START + i);
 
@@ -205,6 +203,7 @@ export function CalendarView({
               >
                 <ChevronRight className="size-4" />
               </Button>
+            </div>
           </div>
         </div>
 
@@ -295,7 +294,7 @@ export function CalendarView({
                   const isHovered = hoveredEvent === ev.id;
                   const isShort = block.height < 50;
                   const isVeryShort = block.height < 30;
-                  
+
                   return (
                     <Tooltip key={ev.id}>
                       <TooltipTrigger asChild>
@@ -314,8 +313,8 @@ export function CalendarView({
                             height: Math.max(block.height, 24),
                             background: `linear-gradient(135deg, ${cfg.color}20 0%, ${cfg.color}08 100%)`,
                             borderColor: cfg.color,
-                            boxShadow: isHovered 
-                              ? `0 4px 16px ${cfg.color}40, 0 1px 3px ${cfg.color}20` 
+                            boxShadow: isHovered
+                              ? `0 4px 16px ${cfg.color}40, 0 1px 3px ${cfg.color}20`
                               : `0 1px 4px ${cfg.color}15`,
                           }}
                         >
@@ -341,7 +340,7 @@ export function CalendarView({
                             </div>
                           )}
                           {!isShort && (
-                            <div 
+                            <div
                               className="absolute right-1.5 top-1.5 mt-0.5 inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[9px] font-semibold"
                               style={{ backgroundColor: `${cfg.color}25`, color: cfg.color }}
                             >
@@ -352,7 +351,7 @@ export function CalendarView({
                       </TooltipTrigger>
                       <TooltipContent side="top" className="z-50 w-72 p-0 overflow-hidden">
                         <div className="bg-gradient-to-br from-card to-card/95">
-                          <div 
+                          <div
                             className="px-4 py-3 border-b"
                             style={{ borderColor: cfg.color + "30", backgroundColor: cfg.color + "10" }}
                           >
@@ -386,7 +385,7 @@ export function CalendarView({
                               </div>
                             )}
                             <div className="pt-2">
-                              <span 
+                              <span
                                 className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold"
                                 style={{ backgroundColor: `${cfg.color}20`, color: cfg.color }}
                               >
@@ -421,13 +420,13 @@ export function CalendarView({
 
 function CurrentTimeIndicator({ hourStart, hourHeight }: { hourStart: number; hourHeight: number }) {
   const [position, setPosition] = React.useState({ top: 0, visible: false });
-  
+
   React.useEffect(() => {
     const updatePosition = () => {
       const now = new Date();
       const currentHour = now.getHours();
       const currentMinute = now.getMinutes();
-      
+
       if (currentHour >= hourStart && currentHour <= hourStart + 14) {
         const hoursFromStart = currentHour - hourStart + (currentMinute / 60);
         setPosition({ top: hoursFromStart * hourHeight, visible: true });
@@ -435,14 +434,14 @@ function CurrentTimeIndicator({ hourStart, hourHeight }: { hourStart: number; ho
         setPosition(prev => ({ ...prev, visible: false }));
       }
     };
-    
+
     updatePosition();
     const interval = setInterval(updatePosition, 60000);
     return () => clearInterval(interval);
   }, [hourStart, hourHeight]);
-  
+
   if (!position.visible) return null;
-  
+
   return (
     <div className="absolute left-0 right-0 z-20 pointer-events-none" style={{ top: position.top }}>
       <div className="flex items-center gap-1">
