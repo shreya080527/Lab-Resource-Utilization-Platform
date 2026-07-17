@@ -103,4 +103,21 @@ public class EmailService {
 
         mailSender.send(message);
     }
+    
+    public void sendWaitlistPromotedEmail(String toEmail, String researcherName, String equipmentName, String startTime, String endTime) {
+        SimpleMailMessage message = new SimpleMailMessage();
+        message.setFrom(adminEmail);
+        message.setTo(toEmail);
+        message.setSubject("Lab Resource Utilization - You're Off the Waitlist! Booking Promoted");
+        message.setText("Hello " + researcherName + ",\n\n" +
+                "Great news! A slot has opened up and you have been promoted from the waitlist.\n\n" +
+                "Your New Booking Details:\n" +
+                "• Equipment: " + equipmentName + "\n" +
+                "• Start Time: " + startTime + "\n" +
+                "• End Time: " + endTime + "\n\n" +
+                "Your booking is now in PENDING status and awaiting approval from the Lab Manager.\n" +
+                "Please log in to the system to view your updated booking status.");
+
+        mailSender.send(message);
+    }
 }

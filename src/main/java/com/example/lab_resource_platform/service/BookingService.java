@@ -187,9 +187,18 @@ public class BookingService {
         if (b.getStatus() != BookingStatus.PENDING) {
 			throw new IllegalStateException("Cannot accept — booking not PENDING. Current: " + b.getStatus());
 		}
+        
+        // Department-level authorization check for Lab Manager
+        User currentUser = getCurrentUser();
+        if (currentUser != null && currentUser.getRole() == Role.LAB_MANAGER) {
+            if (!canManageBooking(b, currentUser)) {
+                throw new IllegalStateException("You can only approve bookings for equipment in your department.");
+            }
+        }
+        
         BookingStatus old = b.getStatus();
         b.setStatus(BookingStatus.CONFIRMED);
-        b.setUpdatedBy(getCurrentUser());
+        b.setUpdatedBy(currentUser);
         b = bookingRepo.save(b);
         
       //Send Accept Email Notification
@@ -206,7 +215,7 @@ public class BookingService {
             
         }
         
-        writeAudit(b, "ACCEPTED", old.name(), "CONFIRMED", getCurrentUser(), "Approved by manager");
+        writeAudit(b, "ACCEPTED", old.name(), "CONFIRMED", currentUser, "Approved by manager");
         return b;
     }
 
@@ -216,9 +225,18 @@ public class BookingService {
         if (b.getStatus() != BookingStatus.PENDING) {
 			throw new IllegalStateException("Cannot reject — booking not PENDING. Current: " + b.getStatus());
 		}
+        
+        // Department-level authorization check for Lab Manager
+        User currentUser = getCurrentUser();
+        if (currentUser != null && currentUser.getRole() == Role.LAB_MANAGER) {
+            if (!canManageBooking(b, currentUser)) {
+                throw new IllegalStateException("You can only reject bookings for equipment in your department.");
+            }
+        }
+        
         BookingStatus old = b.getStatus();
         b.setStatus(BookingStatus.REJECTED);
-        b.setUpdatedBy(getCurrentUser());
+        b.setUpdatedBy(currentUser);
         b = bookingRepo.save(b);
         
         //Send Rejection Email Notification
@@ -233,9 +251,57 @@ public class BookingService {
         } catch (Exception e) {
         	throw new IllegalStateException("Failed to dispatch rejection notification mail.");          
         }
-        writeAudit(b, "REJECTED", old.name(), "REJECTED", getCurrentUser(), null);
+        writeAudit(b, "REJECTED", old.name(), "REJECTED", currentUser, null);
         promoteNextEligibleWaitlist(b.getEquipment().getId());
         return b;
+    }
+    
+    /**
+     * Check if the current user can manage (approve/reject) a booking.
+     * Lab Managers can only manage bookings for equipment in their department.
+     * System Admins and Institution Admins can manage all bookings.
+     */
+    private boolean canManageBooking(Booking booking, User currentUser) {
+        if (currentUser == null) return false;
+        
+        // System Admin and Institution Admin can manage all bookings
+        if (currentUser.getRole() == Role.SYSTEM_ADMIN || 
+            currentUser.getRole() == Role.INSTITUTION_ADMIN) {
+            return true;
+        }
+        
+        // Lab Manager: can only manage bookings for equipment in their department
+        if (currentUser.getRole() == Role.LAB_MANAGER) {
+            if (currentUser.getDepartment() == null) {
+                return false;
+            }
+            if (booking.getEquipment() == null || booking.getEquipment().getDepartment() == null) {
+                return false;
+            }
+            return currentUser.getDepartment().getId().equals(booking.getEquipment().getDepartment().getId());
+        }
+        
+        return false;
+    }
+    
+    /**
+     * Check if the current user can manage a booking (for frontend to know which buttons to show).
+     * Returns true if the user has permission to approve/reject.
+     */
+    @Transactional(readOnly = true)
+    public boolean canCurrentUserManageBooking(Long bookingId) {
+        User currentUser = getCurrentUser();
+        if (currentUser == null) return false;
+        
+        // Only Lab Managers and Admins can manage bookings
+        if (currentUser.getRole() != Role.LAB_MANAGER && 
+            currentUser.getRole() != Role.SYSTEM_ADMIN && 
+            currentUser.getRole() != Role.INSTITUTION_ADMIN) {
+            return false;
+        }
+        
+        Booking booking = findBooking(bookingId);
+        return canManageBooking(booking, currentUser);
     }
 
     @Transactional
@@ -315,6 +381,7 @@ public class BookingService {
     public void promoteNextEligibleWaitlist(Long equipmentId) {
         List<Waitlist> queue = waitlistRepo.findByEquipmentIdOrderByPositionAsc(equipmentId);
         for (Waitlist entry : queue) {
+            // Only promote if the slot is not blocked by PENDING, CONFIRMED, or IN_PROGRESS bookings
             boolean blocked = bookingRepo.existsOverlappingActiveBookingsForUpdate(
                     equipmentId, entry.getStartTime(), entry.getEndTime(), activeStatuses);
             if (!blocked) {
@@ -326,6 +393,24 @@ public class BookingService {
                 promoted = bookingRepo.save(promoted);
                 writeAudit(promoted, "CREATED", null, "PENDING", null,
                         "Auto-promoted from waitlist entry #" + entry.getId());
+                
+                // Send notification email to the promoted researcher
+                try {
+                    emailService.sendWaitlistPromotedEmail(
+                            entry.getUser().getEmail(),
+                            entry.getUser().getUsername(),
+                            entry.getEquipment().getEquipmentName(),
+                            entry.getStartTime().toString(),
+                            entry.getEndTime().toString()
+                    );
+                } catch (Exception e) {
+                    // Log error but don't fail the transaction
+                    System.err.println("Failed to send waitlist promotion email: " + e.getMessage());
+                }
+                
+                // Update notification flag
+                entry.setNotified(true);
+                waitlistRepo.save(entry);
                 waitlistRepo.delete(entry);
             }
         }

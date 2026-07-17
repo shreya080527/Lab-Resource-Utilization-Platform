@@ -24,6 +24,10 @@ public class BookingResponse {
     private Long parentBookingId;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+    
+    // Department info for frontend permission checks
+    private Long equipmentDepartmentId;
+    private String equipmentDepartmentName;
 
     public static BookingResponse from(Booking b) {
         return BookingResponse.builder()
@@ -39,6 +43,8 @@ public class BookingResponse {
                 .parentBookingId(b.getParentBooking() != null ? b.getParentBooking().getId() : null)
                 .createdAt(b.getCreatedAt())
                 .updatedAt(b.getUpdatedAt())
+                .equipmentDepartmentId(b.getEquipment().getDepartment() != null ? b.getEquipment().getDepartment().getId() : null)
+                .equipmentDepartmentName(b.getEquipment().getDepartment() != null ? b.getEquipment().getDepartment().getName() : null)
                 .build();
     }
 }
