@@ -990,3 +990,168 @@ None
 ```
 http://localhost:8080
 ```
+
+# Idle Equipment Report Logic
+
+## Overview
+
+The Idle Equipment Report identifies equipment that has been underutilized during a given reporting period.
+
+The system calculates:
+
+```
+Idle Hours = Available Hours - Booked Hours
+```
+
+Equipment is considered idle when its idle hours exceed the configured threshold.
+
+---
+
+# Flowchart
+
+```
+                 START
+                   |
+                   v
+      Input Parameters Received
+      -------------------------
+      start date
+      end date
+      threshold hours
+                   |
+                   v
+      Fetch Active Equipment
+      (Status != RETIRED)
+                   |
+                   v
+          Loop Through Equipment
+                   |
+                   v
+        Check Equipment Created Date
+                   |
+                   v
+       Is Created Date After Start?
+              /             \
+            YES              NO
+             |                |
+             v                v
+ Set Effective Start Date  Use Report Start Date
+ = Equipment Created Date  as Effective Start Date
+             \                /
+              \              /
+               v            v
+        Is Effective Start After End?
+              /             \
+            YES              NO
+             |                |
+             v                v
+       Skip Equipment   Calculate Utilization
+                             |
+                             v
+                 Get Available Hours
+                 Get Booked Hours
+                             |
+                             v
+                 Calculate Idle Hours
+
+                 Idle Hours =
+              Available Hours - Booked Hours
+
+                             |
+                             v
+             Is Idle Hours > Threshold?
+                    /          \
+                  NO            YES
+                   |              |
+                   v              v
+              Ignore       Create Idle Record
+              Equipment          |
+                                  v
+                         Add To Idle List
+                                  |
+                                  v
+                         More Equipment?
+                           /        \
+                         YES         NO
+                          |           |
+                          v           v
+                    Repeat Loop   Build Response
+                                      |
+                                      v
+                              Return Idle Report
+                                      |
+                                      v
+                                    END
+```
+
+input :
+
+```
+Start:      21-06-2026 00:00:00
+End:        21-07-2026 23:59:59
+Threshold:  5 hours
+
+```
+for computers equipment :
+
+```
+ "createdAt": "2026-07-13T22:45:07.138975" -->  Created At: 13-07-2026 22:45:07
+```
+Duration:
+
+```
+13-07-2026 22:45:07
+        to
+21-07-2026 23:59:59
+
+avail hrs =193.23 hours
+```
+idle report :
+
+```
+Available Hours = 193.25
+Booked Hours    = 12.016
+
+Idle Hours      = 193.23 - 12.016
+                = 181.21 hours
+
+```
+
+# Response Structure
+
+Example response:
+
+```json
+{
+    "periodStart": "2026-06-21T00:00:00",
+    "periodEnd": "2026-07-21T23:59:59",
+    "thresholdHours": 5.0,
+    "idleEquipment": [
+        {
+            "equipmentId": 2,
+            "equipmentName": "cpu",
+            "serial": "67675",
+            "createdAt": "2026-07-21T18:48:05.723702",
+            "department": "cse",
+            "bookedHours": 0.0,
+            "availableHours": 5.183333333333334,
+            "idleHours": 5.183333333333334,
+            "utilizationPercentage": 0.0,
+            "status": "AVAILABLE"
+        },
+        {
+            "equipmentId": 1,
+            "equipmentName": "computers",
+            "serial": "23567",
+            "createdAt": "2026-07-13T22:45:07.138975",
+            "department": "cse",
+            "bookedHours": 12.016666666666666,
+            "availableHours": 193.23333333333332,
+            "idleHours": 181.21666666666664,
+            "utilizationPercentage": 6.218733827841987,
+            "status": "AVAILABLE"
+        }
+    ],
+    "totalIdleCount": 2
+}
+```

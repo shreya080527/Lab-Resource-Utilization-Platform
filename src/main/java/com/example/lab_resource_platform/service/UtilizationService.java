@@ -1,22 +1,30 @@
 package com.example.lab_resource_platform.service;
 
-import com.example.lab_resource_platform.dto.*;
+import java.time.DayOfWeek;
+import java.time.Duration;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.TreeMap;
+import java.util.stream.Collectors;
+
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import com.example.lab_resource_platform.dto.EquipmentUtilizationDTO;
 import com.example.lab_resource_platform.entity.Bookings.Booking;
 import com.example.lab_resource_platform.entity.Bookings.BookingStatus;
 import com.example.lab_resource_platform.entity.equipment.Equipment;
 import com.example.lab_resource_platform.entity.equipment.EquipmentStatus;
 import com.example.lab_resource_platform.repository.BookingRepository;
 import com.example.lab_resource_platform.repository.equipment.EquipmentRepo;
-import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
-import java.time.DayOfWeek;
-import java.time.Duration;
-import java.time.LocalDateTime;
-import java.time.Month;
-import java.util.*;
-import java.util.stream.Collectors;
+import lombok.RequiredArgsConstructor;
 
 @Service
 @RequiredArgsConstructor
@@ -110,7 +118,9 @@ public class UtilizationService {
             LocalDateTime stop = b.getEndTime().isAfter(end) ? end : b.getEndTime();
             while (cursor.isBefore(stop)) {
                 LocalDateTime slotEnd = cursor.plusHours(1).withMinute(0).withSecond(0).withNano(0);
-                if (slotEnd.isAfter(stop)) slotEnd = stop;
+                if (slotEnd.isAfter(stop)) {
+					slotEnd = stop;
+				}
                 String key = cursor.getDayOfWeek() + ":" + cursor.getHour();
                 double hrs = Duration.between(cursor, slotEnd).toMinutes() / 60.0;
                 bucketHours.merge(key, hrs, Double::sum);
@@ -143,36 +153,82 @@ public class UtilizationService {
         return result;
     }
 
-    // ── Idle report ──
+ // ── Idle report ──
     @Transactional(readOnly = true)
-    public Map<String, Object> idleReport(LocalDateTime start, LocalDateTime end, double thresholdHours) {
-        List<Equipment> active = equipmentRepo.findByStatusNot(EquipmentStatus.RETIRED);
+    public Map<String, Object> idleReport(
+            LocalDateTime start,
+            LocalDateTime end,
+            double thresholdHours) {
+
+        List<Equipment> active =
+                equipmentRepo.findByStatusNot(EquipmentStatus.RETIRED);
+
         List<Map<String, Object>> idle = new ArrayList<>();
+
         for (Equipment eq : active) {
-            EquipmentUtilizationDTO u = bookingService.calculateUtilization(eq.getId(), start, end);
-            double idleHours = u.getAvailableHours() - u.getBookedHours();
+
+            // Use equipment creation date if equipment was created after report start
+            LocalDateTime effectiveStart = start;
+
+            if (eq.getCreatedAt() != null &&
+                    eq.getCreatedAt().isAfter(start)) {
+
+                effectiveStart = eq.getCreatedAt();
+            }
+
+            // Ignore equipment created after the report end date
+            if (effectiveStart.isAfter(end)) {
+                continue;
+            }
+
+            EquipmentUtilizationDTO u =
+                    bookingService.calculateUtilization(
+                            eq.getId(),
+                            effectiveStart,
+                            end
+                    );
+
+            double idleHours =
+                    u.getAvailableHours() - u.getBookedHours();
+
             if (idleHours > thresholdHours) {
+
                 Map<String, Object> m = new LinkedHashMap<>();
+
                 m.put("equipmentId", eq.getId());
                 m.put("equipmentName", eq.getEquipmentName());
                 m.put("serial", eq.getSerial());
-                m.put("department", eq.getDepartment() != null ? eq.getDepartment().getName() : null);
+
+                m.put("createdAt", eq.getCreatedAt());
+
+                m.put("department",
+                        eq.getDepartment() != null
+                                ? eq.getDepartment().getName()
+                                : null);
+
                 m.put("bookedHours", u.getBookedHours());
                 m.put("availableHours", u.getAvailableHours());
                 m.put("idleHours", idleHours);
-                m.put("utilizationPercentage", u.getUtilizationPercentage());
+                m.put("utilizationPercentage",
+                        u.getUtilizationPercentage());
+
                 m.put("status", eq.getStatus());
+
                 idle.add(m);
             }
         }
+
         Map<String, Object> result = new LinkedHashMap<>();
+
         result.put("periodStart", start);
         result.put("periodEnd", end);
         result.put("thresholdHours", thresholdHours);
         result.put("idleEquipment", idle);
         result.put("totalIdleCount", idle.size());
+
         return result;
     }
+
 
     // ── Peak analysis ──
     @Transactional(readOnly = true)
@@ -189,7 +245,9 @@ public class UtilizationService {
             LocalDateTime stop = b.getEndTime().isAfter(end) ? end : b.getEndTime();
             while (cursor.isBefore(stop)) {
                 LocalDateTime slotEnd = cursor.plusHours(1).withMinute(0).withSecond(0).withNano(0);
-                if (slotEnd.isAfter(stop)) slotEnd = stop;
+                if (slotEnd.isAfter(stop)) {
+					slotEnd = stop;
+				}
                 double hrs = Duration.between(cursor, slotEnd).toMinutes() / 60.0;
                 hourly.merge(cursor.getHour(), hrs, Double::sum);
                 daily.merge(cursor.getDayOfWeek(), hrs, Double::sum);
@@ -249,9 +307,13 @@ public class UtilizationService {
 
         String trend;
         double delta = current.getUtilizationPercentage() - histAvg;
-        if (delta > 1) trend = "INCREASING";
-        else if (delta < -1) trend = "DECREASING";
-        else trend = "STABLE";
+        if (delta > 1) {
+			trend = "INCREASING";
+		} else if (delta < -1) {
+			trend = "DECREASING";
+		} else {
+			trend = "STABLE";
+		}
 
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("equipmentId", equipmentId);
