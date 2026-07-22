@@ -120,4 +120,70 @@ public class EmailService {
 
         mailSender.send(message);
     }
+    
+    public void sendMaintenanceCreatedEmail(String toEmail, String equipmentName, String priority, String description) {
+        SimpleMailMessage message = new SimpleMailMessage();
+        message.setFrom(adminEmail);
+        message.setTo(toEmail);
+        message.setSubject("Lab Resource Utilization - New Maintenance Task Assigned");
+        message.setText("Hello Technician,\n\n" +
+                "A new maintenance task has been created and assigned to you.\n\n" +
+                "Details:\n" +
+                "• Equipment: " + equipmentName + "\n" +
+                "• Priority: " + priority + "\n" +
+                "• Description: " + description + "\n\n" +
+                "Please log in to the system to review and start the maintenance process.");
+
+        mailSender.send(message);
+    }
+    
+    public void sendMaintenanceStartedEmail(String managerEmail, Long requestId, String equipmentName, String technicianName) {
+        SimpleMailMessage message = new SimpleMailMessage();
+        message.setFrom(adminEmail);
+        message.setTo(managerEmail);
+        message.setSubject("Lab Resource Utilization - Maintenance IN PROGRESS");
+        message.setText("Hello Lab Manager,\n\n" +
+                "Maintenance has officially started for an equipment asset in your department.\n\n" +
+                "Details:\n" +
+                "• Request ID: #" + requestId + "\n" +
+                "• Equipment: " + equipmentName + "\n" +
+                "• Handled By: " + technicianName + "\n\n" +
+                "The equipment status is now set to UNDER_MAINTENANCE.");
+
+        mailSender.send(message);
+    }
+    
+    public void sendMaintenanceCompletedEmail(String managerEmail, Long requestId, String equipmentName, String technicianName, String result, String notes) {
+        SimpleMailMessage message = new SimpleMailMessage();
+        message.setFrom(adminEmail);
+        message.setTo(managerEmail);
+        message.setSubject("Lab Resource Utilization - Maintenance COMPLETED");
+        message.setText("Hello Lab Manager,\n\n" +
+                "A maintenance request has been successfully completed.\n\n" +
+                "Details:\n" +
+                "• Request ID: #" + requestId + "\n" +
+                "• Equipment: " + equipmentName + "\n" +
+                "• Completed By: " + technicianName + "\n" +
+                "• Result: " + result + "\n" +
+                "• Resolution Notes: " + (notes != null ? notes : "N/A") + "\n\n" +
+                "The equipment status has been restored to operational state.");
+
+        mailSender.send(message);
+    }
+    
+    public void sendMaintenanceCancelledEmail(String technicianEmail, Long requestId, String equipmentName, String status) {
+        SimpleMailMessage message = new SimpleMailMessage();
+        message.setFrom(adminEmail);
+        message.setTo(technicianEmail);
+        message.setSubject("Lab Resource Utilization - Maintenance Task CANCELLED");
+        message.setText("Hello Technician,\n\n" +
+                "The following maintenance task has been cancelled by management.\n\n" +
+                "Details:\n" +
+                "• Request ID: #" + requestId + "\n" +
+                "• Equipment: " + equipmentName + "\n" +
+                "• Status: " + status + "\n\n" +
+                "No further action is required from your side.");
+
+        mailSender.send(message);
+    }    
 }

@@ -1,5 +1,13 @@
 package com.example.lab_resource_platform.service;
 
+import java.time.LocalDateTime;
+import java.util.List;
+
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 import com.example.lab_resource_platform.dto.CompleteMaintenanceRequest;
 import com.example.lab_resource_platform.dto.CreateMaintenanceRequestRequest;
 import com.example.lab_resource_platform.dto.MaintenanceRequestDto;
@@ -15,14 +23,9 @@ import com.example.lab_resource_platform.repository.MaintenanceRequestRepo;
 import com.example.lab_resource_platform.repository.NotificationRepo;
 import com.example.lab_resource_platform.repository.auth.UserRepo;
 import com.example.lab_resource_platform.repository.equipment.EquipmentRepo;
-import lombok.RequiredArgsConstructor;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
+import com.example.lab_resource_platform.service.email.EmailService;
 
-import java.time.LocalDateTime;
-import java.util.List;
+import lombok.RequiredArgsConstructor;
 
 /**
  * Business logic for maintenance requests.
@@ -41,7 +44,8 @@ public class MaintenanceService {
     private final EquipmentRepo equipmentRepo;
     private final UserRepo userRepo;
     private final NotificationRepo notificationRepo;
-
+    private final EmailService emailService;
+    
     // ═══════════════════════════════════════════════════════════════
     // CREATE
     // ═══════════════════════════════════════════════════════════════
@@ -92,7 +96,21 @@ public class MaintenanceService {
                 "You have been assigned a maintenance request for " +
                         equipment.getEquipmentName() + ": " + req.getDescription(),
                 Notification.NotificationType.MAINTENANCE_DUE);
-
+        
+     // Email Notification to Assigned Technician
+        try {
+            if (technician.getEmail() != null && !technician.getEmail().isBlank()) {
+                emailService.sendMaintenanceCreatedEmail(
+                        technician.getEmail(),
+                        equipment.getEquipmentName(),
+                        req.getPriority() != null ? req.getPriority() : "STANDARD",
+                        req.getDescription()
+                );
+            }
+        } catch (Exception e) {
+        	throw new IllegalStateException("Email sending failed with exception.");
+        }
+        
         return MaintenanceRequestDto.from(request);
     }
 
@@ -133,7 +151,21 @@ public class MaintenanceService {
                 "Technician " + technician.getUsername() + " has started maintenance on " +
                         m.getEquipment().getEquipmentName() + ".",
                 Notification.NotificationType.SYSTEM_ANNOUNCEMENT);
-
+        
+        // Notify Manager via email
+        try {
+            if (m.getRequestedBy() != null && m.getRequestedBy().getEmail() != null) {
+                emailService.sendMaintenanceStartedEmail(
+                        m.getRequestedBy().getEmail(),
+                        m.getId(),
+                        m.getEquipment().getEquipmentName(),
+                        m.getAssignedTo().getUsername()
+                );
+            }
+        } catch (Exception e) {
+        	throw new IllegalStateException("Failed to send maintenance start email.");       
+        }
+        
         return MaintenanceRequestDto.from(m);
     }
 
@@ -177,6 +209,22 @@ public class MaintenanceService {
                 "Technician " + technician.getUsername() + " completed maintenance on " +
                         m.getEquipment().getEquipmentName() + ". Result: " + body.getResult(),
                 Notification.NotificationType.EQUIPMENT_AVAILABLE);
+        
+     // Notify Manager via email
+        try {
+            if (m.getRequestedBy() != null &&  m.getRequestedBy().getEmail() != null) {
+                emailService.sendMaintenanceCompletedEmail(
+                        m.getRequestedBy().getEmail(),
+                        m.getId(),
+                        m.getEquipment().getEquipmentName(),
+                        m.getAssignedTo().getUsername(),
+                        m.getResult(),
+                        m.getCompletionNotes()
+                );
+            }
+        } catch (Exception e) {
+        	throw new IllegalStateException("Failed to send maintenance completion email.");
+        }
 
         return MaintenanceRequestDto.from(m);
     }
@@ -217,7 +265,20 @@ public class MaintenanceService {
                 "The maintenance request for " + m.getEquipment().getEquipmentName() +
                         " has been cancelled by " + manager.getUsername() + ".",
                 Notification.NotificationType.SYSTEM_ANNOUNCEMENT);
-
+        
+        // Notify Assigned Technician via email
+        try {
+            if (m.getAssignedTo() != null && m.getAssignedTo().getEmail() != null) {
+                emailService.sendMaintenanceCancelledEmail(
+                        m.getAssignedTo().getEmail(),
+                        m.getId(),
+                        m.getEquipment().getEquipmentName(),
+                        m.getStatus().name()
+                );
+            }
+        } catch (Exception e) {
+        	throw new IllegalStateException("Failed to send maintenance cancellation email.");       
+        }
         return MaintenanceRequestDto.from(m);
     }
 
