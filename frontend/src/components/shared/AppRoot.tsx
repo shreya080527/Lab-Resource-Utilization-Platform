@@ -37,6 +37,9 @@ import CalibrationDashboard from "@/features/technician/CalibrationDashboard";
 import AdminInstitutionsPage from "@/features/admin/AdminInstitutionsPage";
 import BrowsePlaceholder from "@/features/browse/BrowsePlaceholder";
 import { ProfilePage } from "@/features/profile/ProfilePage";
+import CreateMaintenanceRequestPage from "@/features/maintenance/CreateMaintenanceRequestPage";
+import MaintenanceRequestsListPage from "@/features/maintenance/MaintenanceRequestsListPage";
+import TechnicianMaintenancePage from "@/features/maintenance/TechnicianMaintenancePage";
 
 // ---------------------------------------------------------------------------
 // AppRoot — wires the React Router v6 route table, the global 401 handler,
@@ -255,10 +258,24 @@ export function AppRoot() {
           element={withRoleShell(["LAB_MANAGER"], <BookingAuditPage />)}
         />
 
+        {/* Maintenance Requests — Lab Manager */}
+        <Route
+          path="/manager/maintenance"
+          element={withRoleShell(["LAB_MANAGER", "SYSTEM_ADMIN"], <MaintenanceRequestsListPage />)}
+        />
+        <Route
+          path="/manager/maintenance/new"
+          element={withRoleShell(["LAB_MANAGER", "SYSTEM_ADMIN"], <CreateMaintenanceRequestPage />)}
+        />
+
         {/* Lab Technician */}
         <Route
           path="/technician/calibration"
           element={withRoleShell(["LAB_TECHNICIAN", "LAB_MANAGER", "DEPARTMENT_HEAD", "SYSTEM_ADMIN", "INSTITUTION_ADMIN"], <CalibrationDashboard />)}
+        />
+        <Route
+          path="/technician/maintenance"
+          element={withRoleShell(["LAB_TECHNICIAN"], <TechnicianMaintenancePage />)}
         />
 
         {/* Admin */}

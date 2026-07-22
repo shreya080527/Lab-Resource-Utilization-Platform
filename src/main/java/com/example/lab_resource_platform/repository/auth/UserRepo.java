@@ -23,27 +23,30 @@ public interface UserRepo extends JpaRepository<User,Long> {
     boolean existsByUsername(String username);
     
     @Query("""
-    	    SELECT u.email
-    	    FROM User u
-    	    WHERE u.role = :role
-    	      AND u.department = (
-    	          SELECT u2.department
-    	          FROM User u2
-    	          WHERE u2.id = :userId
-    	      )
-    	""")
-    	List<String> findEmailsByRoleAndUserDepartment(
-    	        @Param("role") Role role,
-    	        @Param("userId") Long userId);
+            SELECT u.email
+            FROM User u
+            WHERE u.role = :role
+              AND u.department = (
+                  SELECT u2.department
+                  FROM User u2
+                  WHERE u2.id = :userId
+              )
+        """)
+        List<String> findEmailsByRoleAndUserDepartment(
+                @Param("role") Role role,
+                @Param("userId") Long userId);
     
     @Query("""
-    	    SELECT u
-    	    FROM User u
-    	    WHERE u.role = :role
-    	      AND u.department = :department
-    	""")
-    	List<User> findByRoleAndDepartment(
-    	        @Param("role") Role role,
-    	        @Param("department") com.example.lab_resource_platform.entity.Department department);
+            SELECT u
+            FROM User u
+            WHERE u.role = :role
+              AND u.department = :department
+        """)
+        List<User> findByRoleAndDepartment(
+                @Param("role") Role role,
+                @Param("department") com.example.lab_resource_platform.entity.Department department);
+
+    /** Find all users by role — used to populate the technician dropdown on the maintenance request form. */
+    List<User> findByRole(Role role);
 }
 

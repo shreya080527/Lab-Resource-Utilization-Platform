@@ -157,6 +157,70 @@ let wlSeq = 0;
 let calSeq = 0;
 let auditSeq = 0;
 
+// ─── Maintenance Request store (Module: Maintenance) ───
+interface MockMaintenanceRequest {
+  id: number;
+  equipmentId: number;
+  requestedById: number;
+  assignedToId: number;
+  status: "REQUESTED" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED";
+  priority: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
+  description: string;
+  createdAt: string;
+  startedAt: string | null;
+  completedAt: string | null;
+  completionNotes: string | null;
+  result: "PASS" | "FAIL" | "N/A" | null;
+  equipmentStatusBeforeMaintenance: string | null;
+}
+const maintenanceRequests = new Map<number, MockMaintenanceRequest>();
+let maintenanceSeq = 0;
+// Seed one sample maintenance request so the UI has data on first load
+{
+  maintenanceSeq = 1;
+  maintenanceRequests.set(1, {
+    id: 1,
+    equipmentId: 1,
+    requestedById: 2,
+    assignedToId: 3,
+    status: "REQUESTED",
+    priority: "HIGH",
+    description:
+      "The oscilloscope display is flickering and calibration seems off. Needs inspection and recalibration.",
+    createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+    startedAt: null,
+    completedAt: null,
+    completionNotes: null,
+    result: null,
+    equipmentStatusBeforeMaintenance: null,
+  });
+}
+
+function toMaintenanceDto(m: MockMaintenanceRequest) {
+  const eq = equipment.get(m.equipmentId);
+  const req = users.get(m.requestedById);
+  const tech = users.get(m.assignedToId);
+  return {
+    id: m.id,
+    equipmentId: m.equipmentId,
+    equipmentName: eq?.equipmentName ?? "Unknown",
+    equipmentSerial: eq?.serial ?? "",
+    equipmentCategory: eq?.category ?? "",
+    requestedById: m.requestedById,
+    requestedByUsername: req?.username ?? "Unknown",
+    assignedToId: m.assignedToId,
+    assignedToUsername: tech?.username ?? "Unknown",
+    status: m.status,
+    priority: m.priority,
+    description: m.description,
+    createdAt: m.createdAt,
+    startedAt: m.startedAt,
+    completedAt: m.completedAt,
+    completionNotes: m.completionNotes,
+    result: m.result,
+  };
+}
+
 const nowISO = () => new Date().toISOString();
 
 function daysFromNow(d: number, h = 10) {
@@ -1227,6 +1291,264 @@ async function handle(req: Request): Promise<Response> {
           }
         }
         return text(`Waitlist promotion checked for equipment ${equipmentId}.`);
+      }
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // GET /api/users?role=LAB_TECHNICIAN — list users by role
+    //   (used by the Create Maintenance form to populate the technician dropdown)
+    // ─────────────────────────────────────────────────────────────
+    if (path === "/api/users" && method === "GET") {
+      const user = requireAuth(req);
+      if (!user) return text("Unauthorized", 401);
+      if (user.role !== "LAB_MANAGER" && user.role !== "SYSTEM_ADMIN" && user.role !== "INSTITUTION_ADMIN") {
+        return text("Forbidden", 403);
+      }
+      const role = q.get("role") as Role | null;
+      let list = Array.from(users.values());
+      if (role) list = list.filter((u) => u.role === role);
+      return json(list.map((u) => ({
+        id: u.id,
+        username: u.username,
+        email: u.email,
+        role: u.role,
+        emailVerified: u.emailVerified,
+        department: u.department,
+        institution: u.institution,
+      })));
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // MAINTENANCE REQUEST endpoints
+    // ─────────────────────────────────────────────────────────────
+
+    // POST /api/maintenance — create (LAB_MANAGER / SYSTEM_ADMIN)
+    if (path === "/api/maintenance" && method === "POST") {
+      const user = requireAuth(req);
+      if (!user) return text("Unauthorized", 401);
+      if (user.role !== "LAB_MANAGER" && user.role !== "SYSTEM_ADMIN") {
+        return text("Forbidden", 403);
+      }
+      const { equipmentId, assignedToId, description, priority } = body as {
+        equipmentId: number; assignedToId: number; description: string; priority: string;
+      };
+      if (!equipmentId || !assignedToId || !description || !priority) {
+        return text("Missing required fields", 400);
+      }
+      const eq = equipment.get(Number(equipmentId));
+      if (!eq) return text("Equipment not found", 404);
+      if (eq.status === "RETIRED") return text("Cannot maintain retired equipment", 400);
+
+      const hasActive = Array.from(maintenanceRequests.values()).some(
+        (m) =>
+          m.equipmentId === Number(equipmentId) &&
+          (m.status === "REQUESTED" || m.status === "IN_PROGRESS"),
+      );
+      if (hasActive) return text("Equipment already has an active maintenance request", 400);
+
+      const technician = users.get(Number(assignedToId));
+      if (!technician) return text("Technician not found", 404);
+      if (technician.role !== "LAB_TECHNICIAN") {
+        return text("Assigned user must be a LAB_TECHNICIAN", 400);
+      }
+
+      const id = ++maintenanceSeq;
+      const newReq: MockMaintenanceRequest = {
+        id,
+        equipmentId: Number(equipmentId),
+        requestedById: user.id,
+        assignedToId: Number(assignedToId),
+        status: "REQUESTED",
+        priority: priority as MockMaintenanceRequest["priority"],
+        description,
+        createdAt: new Date().toISOString(),
+        startedAt: null,
+        completedAt: null,
+        completionNotes: null,
+        result: null,
+        equipmentStatusBeforeMaintenance: null,
+      };
+      maintenanceRequests.set(id, newReq);
+      return json(toMaintenanceDto(newReq), 201);
+    }
+
+    // GET /api/maintenance — all (LAB_MANAGER / SYSTEM_ADMIN)
+    if (path === "/api/maintenance" && method === "GET") {
+      const user = requireAuth(req);
+      if (!user) return text("Unauthorized", 401);
+      if (user.role !== "LAB_MANAGER" && user.role !== "SYSTEM_ADMIN") {
+        return text("Forbidden", 403);
+      }
+      const list = Array.from(maintenanceRequests.values())
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+        .map(toMaintenanceDto);
+      return json(list);
+    }
+
+    // GET /api/maintenance/my-assigned — (LAB_TECHNICIAN)
+    if (path === "/api/maintenance/my-assigned" && method === "GET") {
+      const user = requireAuth(req);
+      if (!user) return text("Unauthorized", 401);
+      if (user.role !== "LAB_TECHNICIAN") return text("Forbidden", 403);
+      const list = Array.from(maintenanceRequests.values())
+        .filter((m) => m.assignedToId === user.id)
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+        .map(toMaintenanceDto);
+      return json(list);
+    }
+
+    // GET /api/maintenance/my-requested — (LAB_MANAGER / SYSTEM_ADMIN)
+    if (path === "/api/maintenance/my-requested" && method === "GET") {
+      const user = requireAuth(req);
+      if (!user) return text("Unauthorized", 401);
+      if (user.role !== "LAB_MANAGER" && user.role !== "SYSTEM_ADMIN") {
+        return text("Forbidden", 403);
+      }
+      const list = Array.from(maintenanceRequests.values())
+        .filter((m) => m.requestedById === user.id)
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+        .map(toMaintenanceDto);
+      return json(list);
+    }
+
+    // GET /api/maintenance/my-active-count — (LAB_TECHNICIAN)
+    if (path === "/api/maintenance/my-active-count" && method === "GET") {
+      const user = requireAuth(req);
+      if (!user) return text("Unauthorized", 401);
+      if (user.role !== "LAB_TECHNICIAN") return text("Forbidden", 403);
+      const count = Array.from(maintenanceRequests.values()).filter(
+        (m) =>
+          m.assignedToId === user.id &&
+          (m.status === "REQUESTED" || m.status === "IN_PROGRESS"),
+      ).length;
+      return json(count);
+    }
+
+    // GET /api/maintenance/equipment/{equipmentId}
+    const mEquipMatch = path.match(/^\/api\/maintenance\/equipment\/(\d+)$/);
+    if (mEquipMatch && method === "GET") {
+      const user = requireAuth(req);
+      if (!user) return text("Unauthorized", 401);
+      const equipmentId = Number(mEquipMatch[1]);
+      const list = Array.from(maintenanceRequests.values())
+        .filter((m) => m.equipmentId === equipmentId)
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+        .map(toMaintenanceDto);
+      return json(list);
+    }
+
+    // PUT /api/maintenance/{id}/start — (LAB_TECHNICIAN)
+    {
+      const mStart = path.match(/^\/api\/maintenance\/(\d+)\/start$/);
+      if (mStart && method === "PUT") {
+        const user = requireAuth(req);
+        if (!user) return text("Unauthorized", 401);
+        if (user.role !== "LAB_TECHNICIAN") return text("Forbidden", 403);
+        const id = Number(mStart[1]);
+        const m = maintenanceRequests.get(id);
+        if (!m) return text("Maintenance request not found", 404);
+        if (m.status !== "REQUESTED") {
+          return text(`Cannot start — request must be REQUESTED. Current: ${m.status}`, 400);
+        }
+        if (m.assignedToId !== user.id) {
+          return text("Only the assigned technician can start this request", 403);
+        }
+        const eq = equipment.get(m.equipmentId);
+        if (eq) {
+          m.equipmentStatusBeforeMaintenance = eq.status;
+          eq.status = "UNDER_MAINTENANCE";
+          equipment.set(m.equipmentId, eq);
+        }
+        m.status = "IN_PROGRESS";
+        m.startedAt = new Date().toISOString();
+        maintenanceRequests.set(id, m);
+        return json(toMaintenanceDto(m));
+      }
+    }
+
+    // PUT /api/maintenance/{id}/complete — (LAB_TECHNICIAN)
+    {
+      const mComplete = path.match(/^\/api\/maintenance\/(\d+)\/complete$/);
+      if (mComplete && method === "PUT") {
+        const user = requireAuth(req);
+        if (!user) return text("Unauthorized", 401);
+        if (user.role !== "LAB_TECHNICIAN") return text("Forbidden", 403);
+        const id = Number(mComplete[1]);
+        const m = maintenanceRequests.get(id);
+        if (!m) return text("Maintenance request not found", 404);
+        if (m.status !== "IN_PROGRESS") {
+          return text(`Cannot complete — request must be IN_PROGRESS. Current: ${m.status}`, 400);
+        }
+        if (m.assignedToId !== user.id) {
+          return text("Only the assigned technician can complete this request", 403);
+        }
+        const { completionNotes, result } = body as { completionNotes: string; result: string };
+        if (!completionNotes || completionNotes.length < 10) {
+          return text("Completion notes must be at least 10 characters", 400);
+        }
+        if (!["PASS", "FAIL", "N/A"].includes(result)) {
+          return text("Result must be PASS, FAIL, or N/A", 400);
+        }
+        const eq = equipment.get(m.equipmentId);
+        if (eq) {
+          const prior = m.equipmentStatusBeforeMaintenance;
+          if (prior !== "OUT_OF_SERVICE" && prior !== "RETIRED") {
+            eq.status = "AVAILABLE";
+          } else if (prior) {
+            eq.status = prior as Equipment["status"];
+          }
+          equipment.set(m.equipmentId, eq);
+        }
+        m.status = "COMPLETED";
+        m.completedAt = new Date().toISOString();
+        m.completionNotes = completionNotes;
+        m.result = result as MockMaintenanceRequest["result"];
+        maintenanceRequests.set(id, m);
+        return json(toMaintenanceDto(m));
+      }
+    }
+
+    // PUT /api/maintenance/{id}/cancel — (LAB_MANAGER / SYSTEM_ADMIN)
+    {
+      const mCancel = path.match(/^\/api\/maintenance\/(\d+)\/cancel$/);
+      if (mCancel && method === "PUT") {
+        const user = requireAuth(req);
+        if (!user) return text("Unauthorized", 401);
+        if (user.role !== "LAB_MANAGER" && user.role !== "SYSTEM_ADMIN") {
+          return text("Forbidden", 403);
+        }
+        const id = Number(mCancel[1]);
+        const m = maintenanceRequests.get(id);
+        if (!m) return text("Maintenance request not found", 404);
+        if (m.status === "COMPLETED" || m.status === "CANCELLED") {
+          return text(`Cannot cancel a ${m.status} request`, 400);
+        }
+        if (m.requestedById !== user.id && user.role !== "SYSTEM_ADMIN") {
+          return text("Only the requesting manager can cancel this request", 403);
+        }
+        if (m.equipmentStatusBeforeMaintenance) {
+          const eq = equipment.get(m.equipmentId);
+          if (eq) {
+            eq.status = m.equipmentStatusBeforeMaintenance as Equipment["status"];
+            equipment.set(m.equipmentId, eq);
+          }
+        }
+        m.status = "CANCELLED";
+        maintenanceRequests.set(id, m);
+        return json(toMaintenanceDto(m));
+      }
+    }
+
+    // GET /api/maintenance/{id}
+    {
+      const mSingle = path.match(/^\/api\/maintenance\/(\d+)$/);
+      if (mSingle && method === "GET") {
+        const user = requireAuth(req);
+        if (!user) return text("Unauthorized", 401);
+        const id = Number(mSingle[1]);
+        const m = maintenanceRequests.get(id);
+        if (!m) return text("Maintenance request not found", 404);
+        return json(toMaintenanceDto(m));
       }
     }
 

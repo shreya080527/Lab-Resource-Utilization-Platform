@@ -1,8 +1,10 @@
 package com.example.lab_resource_platform.controller;
 
 import com.example.lab_resource_platform.dto.ProfileUpdateRequest;
+import com.example.lab_resource_platform.dto.UserSummaryDto;
 import com.example.lab_resource_platform.dto.auth.GetUserDetailsResponse;
 import com.example.lab_resource_platform.entity.Department;
+import com.example.lab_resource_platform.entity.user.Role;
 import com.example.lab_resource_platform.entity.user.User;
 import com.example.lab_resource_platform.entity.user.UserPrincipal;
 import com.example.lab_resource_platform.repository.DepartmentRepo;
@@ -13,8 +15,10 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -75,25 +79,45 @@ public class UserController {
             @RequestBody Map<String, String> request) {
         String currentPassword = request.get("currentPassword");
         String newPassword = request.get("newPassword");
-        
+
         if (currentPassword == null || newPassword == null) {
             throw new IllegalArgumentException("Current password and new password are required");
         }
-        
+
         if (newPassword.length() < 6) {
             throw new IllegalArgumentException("New password must be at least 6 characters");
         }
-        
+
         User user = userRepo.findById(principal.getId())
                 .orElseThrow(() -> new RuntimeException("User not found"));
-        
+
         if (!passwordEncoder.matches(currentPassword, user.getPassword())) {
             throw new IllegalStateException("Current password is incorrect");
         }
-        
+
         user.setPassword(passwordEncoder.encode(newPassword));
         userRepo.save(user);
-        
+
         return ResponseEntity.ok(Map.of("message", "Password changed successfully"));
+    }
+
+    /**
+     * List users, optionally filtered by role.
+     * Used by the Create Maintenance Request page to populate the technician dropdown.
+     *
+     * Example: GET /api/users?role=LAB_TECHNICIAN
+     *
+     * Returns a lightweight DTO (not raw User entities) to avoid lazy-loading
+     * issues during JSON serialization and to keep sensitive fields (password,
+     * OTP) off the wire entirely.
+     */
+    @GetMapping
+    @PreAuthorize("hasAnyRole('LAB_MANAGER','SYSTEM_ADMIN','INSTITUTION_ADMIN')")
+    @Transactional(readOnly = true)
+    public ResponseEntity<List<UserSummaryDto>> listByRole(@RequestParam(required = false) Role role) {
+        List<User> users = (role != null)
+                ? userRepo.findByRole(role)
+                : userRepo.findAll();
+        return ResponseEntity.ok(users.stream().map(UserSummaryDto::from).toList());
     }
 }

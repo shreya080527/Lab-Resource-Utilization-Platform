@@ -420,6 +420,68 @@ export type BookingAction =
   | "complete"
   | "noShow";
 
+// ═══════════════════════════════════════════════════════════════════
+// MAINTENANCE REQUEST
+// ═══════════════════════════════════════════════════════════════════
+
+export type MaintenanceRequestStatus =
+  | "REQUESTED"
+  | "IN_PROGRESS"
+  | "COMPLETED"
+  | "CANCELLED";
+
+export const MAINTENANCE_STATUSES: MaintenanceRequestStatus[] = [
+  "REQUESTED",
+  "IN_PROGRESS",
+  "COMPLETED",
+  "CANCELLED",
+];
+
+export type MaintenancePriority = "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
+
+export const MAINTENANCE_PRIORITIES: MaintenancePriority[] = [
+  "LOW",
+  "MEDIUM",
+  "HIGH",
+  "CRITICAL",
+];
+
+export type MaintenanceResult = "PASS" | "FAIL" | "N/A";
+
+export interface MaintenanceRequest {
+  id: number;
+  equipmentId: number;
+  equipmentName: string;
+  equipmentSerial: string;
+  equipmentCategory: string;
+  requestedById: number;
+  requestedByUsername: string;
+  assignedToId: number;
+  assignedToUsername: string;
+  status: MaintenanceRequestStatus;
+  priority: MaintenancePriority;
+  description: string;
+  createdAt: string;
+  startedAt: string | null;
+  completedAt: string | null;
+  completionNotes: string | null;
+  result: MaintenanceResult | null;
+}
+
+export interface CreateMaintenanceRequestPayload {
+  equipmentId: number;
+  assignedToId: number;
+  description: string;
+  priority: MaintenancePriority;
+}
+
+export interface CompleteMaintenancePayload {
+  completionNotes: string;
+  result: MaintenanceResult;
+}
+
+export type MaintenanceAction = "start" | "complete" | "cancel";
+
 
 // ─── Notification ───
 export type NotificationType =

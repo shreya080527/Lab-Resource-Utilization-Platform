@@ -4,6 +4,10 @@ import type {
   BookingStatus,
   EquipmentStatus,
   User,
+  MaintenanceRequestStatus,
+  MaintenancePriority,
+  MaintenanceResult,
+  MaintenanceAction,
 } from "@/types";
 
 // ---------------------------------------------------------------------------
@@ -235,3 +239,171 @@ export const ACTION_SUCCESS: Record<BookingAction, string> = {
   complete: "Booking completed",
   noShow: "Booking marked as no-show",
 };
+
+// ═══════════════════════════════════════════════════════════════════
+// MAINTENANCE REQUEST — status config + action state machine
+// ═══════════════════════════════════════════════════════════════════
+
+export interface MaintenanceStatusConfig {
+  label: string;
+  chip: string;
+  dot: string;
+  color: string;
+}
+
+export const MAINTENANCE_STATUS_CONFIG: Record<
+  MaintenanceRequestStatus,
+  MaintenanceStatusConfig
+> = {
+  REQUESTED: {
+    label: "Requested",
+    chip: "bg-amber-500/12 text-amber-700 dark:text-amber-300 ring-1 ring-amber-500/25",
+    dot: "bg-amber-500",
+    color: "#f59e0b",
+  },
+  IN_PROGRESS: {
+    label: "In Progress",
+    chip: "bg-cyan-500/12 text-cyan-700 dark:text-cyan-300 ring-1 ring-cyan-500/25",
+    dot: "bg-cyan-500",
+    color: "#06b6d4",
+  },
+  COMPLETED: {
+    label: "Completed",
+    chip: "bg-emerald-500/12 text-emerald-700 dark:text-emerald-300 ring-1 ring-emerald-500/25",
+    dot: "bg-emerald-500",
+    color: "#10b981",
+  },
+  CANCELLED: {
+    label: "Cancelled",
+    chip: "bg-zinc-500/12 text-zinc-600 dark:text-zinc-300 ring-1 ring-zinc-500/25",
+    dot: "bg-zinc-400",
+    color: "#a1a1aa",
+  },
+};
+
+export function maintenanceStatusConfig(
+  status: string,
+): MaintenanceStatusConfig {
+  return (
+    MAINTENANCE_STATUS_CONFIG[status as MaintenanceRequestStatus] ?? {
+      label: status,
+      chip: "bg-zinc-500/12 text-zinc-600 ring-1 ring-zinc-500/25",
+      dot: "bg-zinc-400",
+      color: "#a1a1aa",
+    }
+  );
+}
+
+// ─── Priority config ───
+export interface PriorityConfig {
+  label: string;
+  chip: string;
+  color: string;
+}
+
+export const MAINTENANCE_PRIORITY_CONFIG: Record<
+  MaintenancePriority,
+  PriorityConfig
+> = {
+  LOW: {
+    label: "Low",
+    chip: "bg-zinc-500/12 text-zinc-600 dark:text-zinc-300 ring-1 ring-zinc-500/25",
+    color: "#a1a1aa",
+  },
+  MEDIUM: {
+    label: "Medium",
+    chip: "bg-blue-500/12 text-blue-700 dark:text-blue-300 ring-1 ring-blue-500/25",
+    color: "#3b82f6",
+  },
+  HIGH: {
+    label: "High",
+    chip: "bg-amber-500/12 text-amber-700 dark:text-amber-300 ring-1 ring-amber-500/25",
+    color: "#f59e0b",
+  },
+  CRITICAL: {
+    label: "Critical",
+    chip: "bg-rose-500/12 text-rose-700 dark:text-rose-300 ring-1 ring-rose-500/25",
+    color: "#f43f5e",
+  },
+};
+
+export function maintenancePriorityConfig(
+  priority: string,
+): PriorityConfig {
+  return (
+    MAINTENANCE_PRIORITY_CONFIG[priority as MaintenancePriority] ?? {
+      label: priority,
+      chip: "bg-zinc-500/12 text-zinc-600 ring-1 ring-zinc-500/25",
+      color: "#a1a1aa",
+    }
+  );
+}
+
+// ─── Result config ───
+export const MAINTENANCE_RESULT_CONFIG: Record<
+  MaintenanceResult,
+  { label: string; color: string }
+> = {
+  PASS: { label: "Pass", color: "#10b981" },
+  FAIL: { label: "Fail", color: "#f43f5e" },
+  "N/A": { label: "N/A", color: "#a1a1aa" },
+};
+
+// ─── Maintenance action labels + variants ───
+export const MAINTENANCE_ACTION_LABELS: Record<MaintenanceAction, string> = {
+  start: "Start Work",
+  complete: "Complete",
+  cancel: "Cancel Request",
+};
+
+export const MAINTENANCE_ACTION_VARIANTS: Record<
+  MaintenanceAction,
+  "default" | "destructive" | "outline" | "secondary"
+> = {
+  start: "default",
+  complete: "default",
+  cancel: "outline",
+};
+
+/**
+ * Returns the actions available on a maintenance request given the current user's role.
+ *
+ *   REQUESTED    → technician: start | manager: cancel
+ *   IN_PROGRESS  → technician: complete | manager: cancel
+ *   COMPLETED    → (none)
+ *   CANCELLED    → (none)
+ */
+export function getAvailableMaintenanceActions(
+  request: {
+    status: MaintenanceRequestStatus;
+    assignedToId: number;
+    requestedById: number;
+  },
+  currentUser: { id: number; role: string } | null,
+): MaintenanceAction[] {
+  if (!currentUser) return [];
+  const isTechnician =
+    currentUser.role === "LAB_TECHNICIAN" &&
+    request.assignedToId === currentUser.id;
+  const isManager =
+    (currentUser.role === "LAB_MANAGER" ||
+      currentUser.role === "SYSTEM_ADMIN") &&
+    request.requestedById === currentUser.id;
+  const isAdmin = currentUser.role === "SYSTEM_ADMIN";
+
+  const actions: MaintenanceAction[] = [];
+  switch (request.status) {
+    case "REQUESTED":
+      if (isTechnician) actions.push("start");
+      if (isManager || isAdmin) actions.push("cancel");
+      break;
+    case "IN_PROGRESS":
+      if (isTechnician) actions.push("complete");
+      if (isManager || isAdmin) actions.push("cancel");
+      break;
+    case "COMPLETED":
+    case "CANCELLED":
+      break;
+  }
+  return Array.from(new Set(actions));
+}

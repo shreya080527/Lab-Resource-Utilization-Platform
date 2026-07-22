@@ -1,5 +1,5 @@
 
-	
+        
 import * as React from "react";
 import {
   LayoutDashboard,
@@ -77,11 +77,13 @@ function navFor(role: Role): NavItem[] {
         // (sourced from dashboardApi.stats().calibrationsDueIn30Days) — defaults to 0.
         { label: "Calibrations Due", to: "/manager/calibrations", icon: ClipboardCheck, match: ["/manager/calibrations"], badge: 0 },
         { label: "Audit Trail", to: "/manager/audit", icon: History, match: ["/manager/audit"] },
+        { label: "Maintenance", to: "/manager/maintenance", icon: Wrench, match: ["/manager/maintenance", "/manager/maintenance/new"] },
         profileLink,
       ];
     case "LAB_TECHNICIAN":
       return [
         { label: "Calibration Dashboard", to: "/technician/calibration", icon: Wrench, match: ["/technician/calibration"] },
+        { label: "My Maintenance Tasks", to: "/technician/maintenance", icon: Wrench, match: ["/technician/maintenance"] },
         { label: "Equipment", to: "/equipment", icon: Microscope, match: ["/equipment"] },
         profileLink,
       ];
