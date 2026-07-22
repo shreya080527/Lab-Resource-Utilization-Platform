@@ -21,7 +21,7 @@ public class CalibrationController {
     private final CalibrationService calibrationService;
 
     @PostMapping
-    @PreAuthorize("hasAnyRole('LAB_MANAGER','SYSTEM_ADMIN')")
+    @PreAuthorize("hasAnyRole('LAB_MANAGER','SYSTEM_ADMIN', 'LAB_TECHNICIAN')")
     public ResponseEntity<CalibrationResponse> create(
             @PathVariable Long equipmentId,
             @Valid @RequestBody CalibrationRequest req) {
@@ -36,7 +36,7 @@ public class CalibrationController {
     }
 
     @GetMapping("/due")
-    @PreAuthorize("hasAnyRole('LAB_MANAGER','SYSTEM_ADMIN')")
+    @PreAuthorize("hasAnyRole('LAB_MANAGER','SYSTEM_ADMIN','LAB_TECHNICIAN')")
     public ResponseEntity<List<CalibrationResponse>> due(
             @PathVariable Long equipmentId,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
