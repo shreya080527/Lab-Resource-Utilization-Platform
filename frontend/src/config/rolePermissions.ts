@@ -21,7 +21,8 @@ export type RouteKey =
   | "managerCalibrations"
   | "managerAudit"
   | "adminInstitutions"
-  | "browse";
+  | "browse"
+  | "technicianCalibration";
 
 export interface RolePermission {
   /** Full featured experience label, or null for browse-only placeholder */
@@ -78,8 +79,8 @@ export const ROLE_PERMISSIONS: Record<Role, RolePermission> = {
   },
   LAB_TECHNICIAN: {
     experience: "browse",
-    landing: "/browse",
-    routes: ["browse", "equipment", "equipmentDetail"],
+    landing: "/technician/calibration",
+    routes: ["technicianCalibration", "browse", "equipment", "equipmentDetail"],
     canBook: false,
     canManageEquipment: false,
     canManageBookings: false,

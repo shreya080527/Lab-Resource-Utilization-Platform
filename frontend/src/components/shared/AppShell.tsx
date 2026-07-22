@@ -16,6 +16,7 @@ import {
   History,
   Building2,
   User,
+  Wrench,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -78,10 +79,17 @@ function navFor(role: Role): NavItem[] {
         { label: "Audit Trail", to: "/manager/audit", icon: History, match: ["/manager/audit"] },
         profileLink,
       ];
+    case "LAB_TECHNICIAN":
+      return [
+        { label: "Calibration Dashboard", to: "/technician/calibration", icon: Wrench, match: ["/technician/calibration"] },
+        { label: "Equipment", to: "/equipment", icon: Microscope, match: ["/equipment"] },
+        profileLink,
+      ];
     case "SYSTEM_ADMIN":
     case "INSTITUTION_ADMIN":
       return [
         { label: "Institutions", to: "/admin/institutions", icon: Building2, match: ["/admin/institutions"] },
+        { label: "Calibration Dashboard", to: "/technician/calibration", icon: Wrench, match: ["/technician/calibration"] },
         { label: "Manage Equipment", to: "/manager/equipment", icon: Microscope, match: ["/manager/equipment", "/manager/equipment/new"] },
         { label: "Browse", to: "/browse", icon: Search, match: ["/browse"] },
         { label: "Equipment", to: "/equipment", icon: Microscope, match: ["/equipment"] },
@@ -91,6 +99,7 @@ function navFor(role: Role): NavItem[] {
     case "DEPARTMENT_HEAD":
       return [
         { label: "Browse", to: "/browse", icon: Search, match: ["/browse"] },
+        { label: "Calibration Dashboard", to: "/technician/calibration", icon: Wrench, match: ["/technician/calibration"] },
         { label: "Equipment", to: "/equipment", icon: Microscope, match: ["/equipment"] },
         { label: "Utilization Dashboard", to: "/manager/utilization-dashboard", icon: BarChart3, match: ["/manager/utilization-dashboard"] },
         profileLink,

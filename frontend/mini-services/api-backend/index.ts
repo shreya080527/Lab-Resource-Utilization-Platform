@@ -190,8 +190,20 @@ function seed() {
     institution: "Demo University",
     otp: "123456",
   };
+  const technician: MockUser = {
+    id: ++userSeq,
+    username: "technician",
+    email: "technician@demo.com",
+    password: "password",
+    role: "LAB_TECHNICIAN",
+    emailVerified: true,
+    department: "Computer Science",
+    institution: "Demo University",
+    otp: "123456",
+  };
   users.set(researcher.id, researcher);
   users.set(manager.id, manager);
+  users.set(technician.id, technician);
 
   const sample: Array<[string, string, string, string]> = [
     ["OSC-001", "Digital Oscilloscope", "Electronics", "4-channel 200 MHz digital oscilloscope with mixed-signal analysis and protocol decoding."],
@@ -660,13 +672,13 @@ async function handle(req: Request): Promise<Response> {
       }
     }
 
-    // POST /api/equipment/{equipmentId}/calibrations — add a record (LAB_MANAGER, SYSTEM_ADMIN)
+    // POST /api/equipment/{equipmentId}/calibrations — add a record (LAB_MANAGER, LAB_TECHNICIAN, SYSTEM_ADMIN)
     {
       const m = path.match(/^\/api\/equipment\/(\d+)\/calibrations$/);
       if (m && method === "POST") {
         const user = requireAuth(req);
         if (!user) return text("Unauthorized", 401);
-        if (user.role !== "LAB_MANAGER" && user.role !== "SYSTEM_ADMIN") {
+        if (user.role !== "LAB_MANAGER" && user.role !== "LAB_TECHNICIAN" && user.role !== "SYSTEM_ADMIN") {
           return text("Forbidden", 403);
         }
         const equipmentId = Number(m[1]);
@@ -696,7 +708,7 @@ async function handle(req: Request): Promise<Response> {
       if (m && method === "GET") {
         const user = requireAuth(req);
         if (!user) return text("Unauthorized", 401);
-        if (user.role !== "LAB_MANAGER" && user.role !== "SYSTEM_ADMIN") {
+        if (user.role !== "LAB_MANAGER" && user.role !== "LAB_TECHNICIAN" && user.role !== "SYSTEM_ADMIN") {
           return text("Forbidden", 403);
         }
         const equipmentId = Number(m[1]);
